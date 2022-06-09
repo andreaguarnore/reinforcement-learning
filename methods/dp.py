@@ -141,6 +141,7 @@ def value_iteration(
 
     # Compute corresponding deterministic policy
     n_actions = env.action_space.n
+    policy = TabularPolicy(n_states, n_actions)
     for state in range(n_states):
         action_values = one_step_lookahead(env, state, V, gamma)
         best_action = np.argmax(action_values)

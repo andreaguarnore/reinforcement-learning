@@ -9,6 +9,7 @@ env = gym.make('FrozenLake-v1', is_slippery=True)
 methods = [
     'policy_iteration',
     'value_iteration',
+    # 'first_visit_mc'
 ]
 
 # Metrics
@@ -27,7 +28,7 @@ x, y = np.meshgrid(np.arange(rows), np.arange(cols))
 for i, m in enumerate(methods, start=1):
 
     # Find optimal value
-    V, policy = policy_iteration(env)
+    V, policy = locals()[m](env)
 
     # Print resulting policy
     print(m)
@@ -65,7 +66,7 @@ for i, m in enumerate(methods, start=1):
     print()
 
     # Convert value to surface and plot it
-    z = V.to_numpy_array().reshape((rows, cols))
+    z = V.to_array().reshape((rows, cols))
     ax = fig.add_subplot(*gridsize, i, projection='3d')
     ax.plot_surface(x, y, z)
     ax.set_xlabel('row')

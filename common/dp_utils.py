@@ -43,13 +43,13 @@ class TabularStateValue:
         """
         return self.V[state]
 
-    def update(self, state: int, value: float) -> None:
+    def update(self, state: int, new_value: float) -> None:
         """
         Update value of the given state.
         """
-        self.V[state] = value
+        self.V[state] = new_value
 
-    def to_numpy_array(self) -> np.array:
+    def to_array(self) -> np.array:
         """
         Return the state-value function as a `(n_states,)` array.
         """
