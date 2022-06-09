@@ -9,7 +9,7 @@ env = gym.make('FrozenLake-v1', is_slippery=True)
 methods = [
     'policy_iteration',
     'value_iteration',
-    # 'first_visit_mc'
+    'first_visit_mc',
 ]
 
 # Metrics
@@ -19,7 +19,7 @@ reached_goal = np.zeros(len(methods))
 
 # Prepare plots
 gridsize = (len(methods) // 4 + 1, min(len(methods), 3))
-fig = plt.figure(figsize=(gridsize[0] * 9, gridsize[1] * 2.5))
+fig = plt.figure(figsize=(gridsize[1] * 4, gridsize[0] * 3.5))
 rows = 4
 cols = 4
 x, y = np.meshgrid(np.arange(rows), np.arange(cols))
@@ -61,7 +61,7 @@ for i, m in enumerate(methods, start=1):
 
     # Print results
     print(f'   results over {n_runs} runs')
-    print(f'      avg steps: {steps / n_runs:.2f}')
+    print(f'      avg steps until done: {steps / n_runs:.2f}')
     print(f'      times reached goal: {reached_goal}')
     print()
 
@@ -73,4 +73,5 @@ for i, m in enumerate(methods, start=1):
     ax.set_ylabel('column')
     ax.set_zlabel('value')
 
+plt.tight_layout()
 plt.show()
