@@ -87,7 +87,7 @@ def policy_improvement(
     gamma: float = 0.9
 ) -> tuple[TabularPolicy, bool]:
     """
-    Improve policy toward optimality.
+    Improve policy towards optimality.
     """
     n_states = env.observation_space.n
     policy_stable = True

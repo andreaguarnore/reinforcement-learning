@@ -1,9 +1,9 @@
 __all__ = [
     'first_visit_mc',
+    'off_policy_mc',
 ]
 
 
-from collections import defaultdict
 from copy import deepcopy
 
 from gym import Env
@@ -25,47 +25,109 @@ def first_visit_mc(
     """
     n_states = env.observation_space.n
     n_actions = env.action_space.n
-    Q = TabularActionValue(n_states, n_actions)
+    Q = deepcopy(starting_value) if starting_value is not None \
+        else TabularActionValue(n_states, n_actions)
     policy = DerivedPolicy(Q)
 
-    returns = defaultdict(lambda: 0.)
-    returns_count = defaultdict(lambda: 0)
+    returns = np.zeros((n_states, n_actions))
+    counter = np.zeros((n_states, n_actions), dtype=int)
 
     for _ in range(n_episodes):
 
-        # Generate an episode following the policy
-        episode = {'sa_pairs': [], 'rewards': []}
+        # Keep track of first occurrences of state-action pairs
+        first_occurrences = dict()
+
+        # Keep all rewards in the episode
+        rewards = []
+
+        # Generate an episode
         state = env.reset()
         step = 0
         while n_steps is None or step < n_steps:
-
             action = policy.sample_epsilon_greedy(state, epsilon)
+
+            # Add state-action pair if it is its
+            # first occurrence in this episode
+            if (state, action) not in first_occurrences:
+                first_occurrences[state, action] = step
+
+            # Make new step
             next_state, reward, done, _ = env.step(action)
-
-            episode['sa_pairs'].append((state, action))
-            episode['rewards'].append(reward)
-
+            rewards.append(reward)
             if done:
                 break
             state = next_state
             step += 1
 
-        # For all visited state-action pairs in this episode
-        sa_pairs = set(episode['sa_pairs'])
-        for sa_pair in sa_pairs:
+        # For all visited state-action pairs
+        for (state, action), fo_idx in first_occurrences.items():
 
-            # Find first occurrence in the episode
-            fo_step = next(
-                step for step, ep_sa_pair in enumerate(episode['sa_pairs']) \
-                if sa_pair == ep_sa_pair
-            )
+            # Compute return starting from the first occurrence
+            G = sum([r * gamma ** step for step, r in enumerate(rewards[fo_idx:])])
 
-            # Sum all rewards obtained since the first occurence
-            G = sum([r * (gamma ** step) for step, r in enumerate(episode['rewards'][fo_step:])])
+            # Update new value to the average return of the state-action pair
+            returns[state, action] += G
+            counter[state, action] += 1
+            Q.update(state, action, returns[state, action] / counter[state, action])
 
-            # Compute average return and update counts
-            returns[sa_pair] += G
-            returns_count[sa_pair] += 1
-            Q.update(*sa_pair, returns[sa_pair] / returns_count[sa_pair])
+    return Q, policy
+
+
+def off_policy_mc(
+    env: Env,
+    starting_value: TabularActionValue | None = None,
+    gamma: float = .9,
+    epsilon: float = .3,
+    n_episodes: int = 10000,
+    n_steps: int | None = None,
+):
+    """
+    Off-policy Monte Carlo control via importance sampling.
+    """
+    n_states = env.observation_space.n
+    n_actions = env.action_space.n
+    Q = deepcopy(starting_value) if starting_value is not None \
+        else TabularActionValue(n_states, n_actions)
+    policy = DerivedPolicy(Q)
+
+    # Cumulative sum of the weights given the first `n` returns
+    C = np.zeros((n_states, n_actions))
+
+    for _ in range(n_episodes):
+
+        # Generate an episode following the behaviour policy
+        episode = []
+        state = env.reset()
+        step = 0
+        while n_steps is None or step < n_steps:
+            action = policy.sample_epsilon_greedy(state, epsilon)
+            next_state, reward, done, _ = env.step(action)
+            episode.append((state, action, reward))
+            if done:
+                break
+            state = next_state
+            step += 1
+
+        # For each step of the episode,
+        # starting from the last one
+        G = 0
+        W = 1
+        for state, action, reward in reversed(episode):
+
+            # Weight return according to similarity between policies
+            G = gamma * G + reward
+            C[state, action] += W
+            incremental_update = (W / C[state, action]) * (G - Q.of(state, action))
+
+            # Update value towards corrected return
+            Q.update(state, action, Q.of(state, action) + incremental_update)
+
+            # Stop looping if policies do not match
+            greedy_action = policy.sample_greedy(state)
+            if action != greedy_action:
+                break
+
+            # Update weights
+            W = W / policy.epsilon_probabilities(state, epsilon)[action]
 
     return Q, policy
