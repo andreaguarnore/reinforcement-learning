@@ -11,6 +11,7 @@ methods = [
     'value_iteration',
     'first_visit_mc',
     'off_policy_mc',
+    'sarsa',
 ]
 
 # Metrics
@@ -19,9 +20,10 @@ avg_steps = np.zeros(len(methods))
 reached_goal = np.zeros(len(methods))
 
 # Prepare plots
-gridsize = (len(methods), 1) if len(methods) <= 3 else \
-    (2, 2) if len(methods) <= 4 else (3, 3)
-fig = plt.figure(figsize=(gridsize[1] * 4, gridsize[0] * 3.5))
+gridsize = (1, len(methods)) if len(methods) <= 3 else \
+    (2, 2) if len(methods) <= 4 else \
+    (2, 3) if len(methods) <= 6 else (3, 3)
+fig = plt.figure(figsize=(3 + gridsize[1] * 3.5, 2 + gridsize[0] * 2.5))
 rows = 4
 cols = 4
 x, y = np.meshgrid(np.arange(rows), np.arange(cols))
@@ -67,6 +69,8 @@ for i, m in enumerate(methods, start=1):
     print(f'      times reached goal: {reached_goal}')
     print()
 
+    print(value.to_array())
+
     # Convert value to surface and plot it
     z = value.to_array().reshape((rows, cols))
     ax = fig.add_subplot(*gridsize, i, projection='3d')
@@ -76,4 +80,5 @@ for i, m in enumerate(methods, start=1):
     ax.set_zlabel('value')
     ax.set_title(m)
 
+plt.tight_layout()
 plt.show()

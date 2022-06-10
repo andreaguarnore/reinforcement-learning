@@ -61,9 +61,9 @@ class DerivedPolicy:
     Policy derived from an action-value function.
     """
 
-    def __init__(self, value: int) -> None:
-        self.value = value
-        self.n_actions = value.n_actions
+    def __init__(self, Q: int) -> None:
+        self.Q = Q
+        self.n_actions = Q.n_actions
 
     def epsilon_probabilities(
         self,
@@ -74,7 +74,7 @@ class DerivedPolicy:
         Return the epsilon probability distribution for the given state.
         """
         probs = np.ones(self.n_actions) * epsilon / self.n_actions
-        best_action = np.argmax(self.value.all_values(state))
+        best_action = self.sample_greedy(state)
         probs[best_action] += 1. - epsilon
         return probs
 
@@ -90,4 +90,4 @@ class DerivedPolicy:
         """
         Greedily sample an action in the given state.
         """
-        return np.argmax(self.value.all_values(state))
+        return np.argmax(self.Q.all_values(state))

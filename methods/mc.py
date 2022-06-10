@@ -17,7 +17,7 @@ def first_visit_mc(
     starting_value: TabularActionValue | None = None,
     gamma: float = .9,
     epsilon: float = .3,
-    n_episodes: int = 10000,
+    n_episodes: int = 10_000,
     n_steps: int | None = None,
 ):
     """
@@ -78,7 +78,7 @@ def off_policy_mc(
     starting_value: TabularActionValue | None = None,
     gamma: float = .9,
     epsilon: float = .3,
-    n_episodes: int = 10000,
+    n_episodes: int = 10_000,
     n_steps: int | None = None,
 ):
     """
@@ -90,7 +90,7 @@ def off_policy_mc(
         else TabularActionValue(n_states, n_actions)
     policy = DerivedPolicy(Q)
 
-    # Cumulative sum of the weights given the first `n` returns
+    # Cumulative sum of the weights given the first n returns
     C = np.zeros((n_states, n_actions))
 
     for _ in range(n_episodes):
