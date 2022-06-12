@@ -27,10 +27,7 @@ def policy_iteration(
     Prediction: Bellman expectation backup.
     Control: Greedy policy improvement.
     """
-    n_states = env.observation_space.n
-    n_actions = env.action_space.n
-    policy = deepcopy(starting_policy) if starting_policy is not None \
-        else TabularPolicy(n_states, n_actions)
+    policy = deepcopy(starting_policy)
 
     while True:
 
@@ -73,8 +70,9 @@ def iterative_policy_evaluation(
                     )
 
             # Update the value function
-            delta = max(delta, abs(state_value - V.of(state)))
-            V.update(state, state_value)
+            update = state_value - V.of(state)
+            delta = max(delta, abs(update))
+            V.update(state, update)
 
         if delta < theta:
             return V
@@ -109,7 +107,7 @@ def policy_improvement(
 
 def value_iteration(
     env: Env,
-    starting_value: TabularStateValue | None = None,
+    starting_value: TabularStateValue,
     gamma: float = 0.9,
     theta: float = 1e-4,
 ) -> tuple[TabularStateValue, TabularPolicy]:
@@ -119,8 +117,7 @@ def value_iteration(
     Prediction and control: Bellman optimality backup.
     """
     n_states = env.observation_space.n
-    V = deepcopy(starting_value) if starting_value is not None \
-        else TabularStateValue(n_states)
+    V = deepcopy(starting_value)
 
     # Until the approximation is accurate enough
     while True:
@@ -133,8 +130,9 @@ def value_iteration(
             max_action_value = np.max(action_values)
 
             # Update the value function
-            delta = max(delta, abs(max_action_value - V.of(state)))
-            V.update(state, max_action_value)
+            update = max_action_value - V.of(state)
+            delta = max(delta, abs(update))
+            V.update(state, update)
 
         if delta < theta:
             break

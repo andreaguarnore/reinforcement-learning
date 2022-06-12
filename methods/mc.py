@@ -25,8 +25,7 @@ def first_visit_mc(
     """
     n_states = env.observation_space.n
     n_actions = env.action_space.n
-    Q = deepcopy(starting_value) if starting_value is not None \
-        else TabularActionValue(n_states, n_actions)
+    Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
 
     returns = np.zeros((n_states, n_actions))
@@ -65,10 +64,12 @@ def first_visit_mc(
             # Compute return starting from the first occurrence
             G = sum([r * gamma ** step for step, r in enumerate(rewards[fo_idx:])])
 
-            # Update new value to the average return of the state-action pair
+            # Update new value to the average return
+            # of the state-action pair
             returns[state, action] += G
             counter[state, action] += 1
-            Q.update(state, action, returns[state, action] / counter[state, action])
+            update = (returns[state, action] / counter[state, action]) - Q.of(state, action)
+            Q.update(state, action, update)
 
     return Q, policy
 
@@ -86,8 +87,7 @@ def off_policy_mc(
     """
     n_states = env.observation_space.n
     n_actions = env.action_space.n
-    Q = deepcopy(starting_value) if starting_value is not None \
-        else TabularActionValue(n_states, n_actions)
+    Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
 
     # Cumulative sum of the weights given the first n returns
@@ -117,10 +117,10 @@ def off_policy_mc(
             # Weight return according to similarity between policies
             G = gamma * G + reward
             C[state, action] += W
-            incremental_update = (W / C[state, action]) * (G - Q.of(state, action))
 
             # Update value towards corrected return
-            Q.update(state, action, Q.of(state, action) + incremental_update)
+            update = (W / C[state, action]) * (G - Q.of(state, action))
+            Q.update(state, action, update)
 
             # Stop looping if policies do not match
             greedy_action = policy.sample_greedy(state)

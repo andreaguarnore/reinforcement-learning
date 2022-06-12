@@ -2,23 +2,21 @@ import gym
 import matplotlib.pyplot as plt
 import numpy as np
 
+from common import TabularPolicy, TabularStateValue, TabularActionValue
 from methods import *
 
 
+n_runs = 1_000
+
 env = gym.make('FrozenLake-v1', is_slippery=True)
 methods = [
-    'policy_iteration',
-    'value_iteration',
+    # 'policy_iteration',
+    # 'value_iteration',
     'first_visit_mc',
-    'off_policy_mc',
-    'sarsa',
-    'q_learning',
+    # 'off_policy_mc',
+    # 'sarsa',
+    # 'q_learning',
 ]
-
-# Metrics
-n_runs = 1000
-avg_steps = np.zeros(len(methods))
-reached_goal = np.zeros(len(methods))
 
 # Prepare plots
 gridsize = (1, len(methods)) if len(methods) <= 3 else \
@@ -32,8 +30,22 @@ x, y = np.meshgrid(np.arange(rows), np.arange(cols))
 # For each method
 for i, m in enumerate(methods, start=1):
 
+    # Initialize starting policy/value
+    match m:
+        case 'policy_iteration':
+            n_states = env.observation_space.n
+            n_actions = env.action_space.n
+            args = (TabularPolicy(n_states, n_actions),)
+        case 'value_iteration':
+            n_states = env.observation_space.n
+            args = (TabularStateValue(n_states),)
+        case _:
+            n_states = env.observation_space.n
+            n_actions = env.action_space.n
+            args = (TabularActionValue(n_states, n_actions),)
+
     # Find optimal value
-    value, policy = locals()[m](env)
+    value, policy = locals()[m](env, *args)
 
     # Print resulting policy
     print(m)

@@ -9,12 +9,12 @@ from copy import deepcopy
 from gym import Env
 import numpy as np
 
-from common import TabularActionValue, DerivedPolicy
+from common import ActionValue, LinearApproxActionValue, DerivedPolicy
 
 
 def sarsa(
     env: Env,
-    starting_value: TabularActionValue | None = None,
+    starting_value: ActionValue,
     gamma: float = .9,
     epsilon: float = .3,
     alpha: float = .1,
@@ -25,12 +25,10 @@ def sarsa(
     """
     On-policy temporal difference learning.
     """
-    n_states = env.observation_space.n
-    n_actions = env.action_space.n
-    Q = deepcopy(starting_value) if starting_value is not None \
-        else TabularActionValue(n_states, n_actions)
+    values = []
+    Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
-    starting_alpha = alpha
+    alpha0 = alpha
 
     # For each episode
     for episode in range(n_episodes):
@@ -57,22 +55,24 @@ def sarsa(
             target = reward + gamma * Q.of(next_state, next_action)
             error = target - Q.of(state, action)
             update = alpha * error
-            Q.update(state, action, Q.of(state, action) + update)
+            Q.update(state, action, update)
 
             if done:
                 break
             state = next_state
             step += 1
 
-        # Update alpha
-        alpha = starting_alpha / (1 + decay * (episode + 1))
+        # Update learning rates
+        alpha = alpha0 / (1 + decay * episode)
+        if isinstance(Q, LinearApproxActionValue):
+            Q.step()
 
     return Q, policy
 
 
 def q_learning(
     env: Env,
-    starting_value: TabularActionValue | None = None,
+    starting_value: ActionValue,
     gamma: float = .9,
     epsilon: float = .3,
     alpha: float = .1,
@@ -83,12 +83,9 @@ def q_learning(
     """
     Off-policy temporal difference learning.
     """
-    n_states = env.observation_space.n
-    n_actions = env.action_space.n
-    Q = deepcopy(starting_value) if starting_value is not None \
-        else TabularActionValue(n_states, n_actions)
+    Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
-    starting_alpha = alpha
+    alpha0 = alpha
 
     # For each episode
     for episode in range(n_episodes):
@@ -115,7 +112,7 @@ def q_learning(
             target = reward + gamma * Q.of(next_state, next_action)
             error = target - Q.of(state, action)
             update = alpha * error
-            Q.update(state, action, Q.of(state, action) + update)
+            Q.update(state, action, update)
 
             if done:
                 break
@@ -123,6 +120,8 @@ def q_learning(
             step += 1
 
         # Update alpha
-        alpha = starting_alpha / (1 + decay * (episode + 1))
+        alpha = alpha0 / (1 + decay * (episode + 1))
+        if isinstance(Q, LinearApproxActionValue):
+            Q.step()
 
     return Q, policy

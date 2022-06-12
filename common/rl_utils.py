@@ -1,4 +1,5 @@
 __all__ = [
+    'ActionValue',
     'TabularActionValue',
     'DerivedPolicy',
 ]
@@ -46,8 +47,8 @@ class TabularActionValue(ActionValue):
     def all_values(self, state: int) -> np.ndarray:
         return self.Q[state]
 
-    def update(self, state: int, action: int, new_value: float) -> None:
-        self.Q[state][action] = new_value
+    def update(self, state: int, action: int, update: float) -> None:
+        self.Q[state][action] += update
 
     def to_array(self) -> np.ndarray:
         """
