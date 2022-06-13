@@ -16,11 +16,13 @@ def sarsa(
     env: Env,
     starting_value: ActionValue,
     gamma: float = .9,
-    epsilon: float = .3,
+    epsilon: float = .1,
+    epsilon_decay: float = 1e-3,
     alpha: float = .1,
-    decay: float = 1e-3,
-    n_episodes: int = 10_000,
+    alpha_decay: float = 1e-3,
+    n_episodes: int = 200,
     n_steps: int | None = None,
+    verbose: bool = False,
 ):
     """
     On-policy temporal difference learning.
@@ -28,6 +30,7 @@ def sarsa(
     values = []
     Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
+    epsilon0 = epsilon
     alpha0 = alpha
 
     # For each episode
@@ -38,6 +41,7 @@ def sarsa(
 
         # For each step of the episode
         step = 0
+        total_reward = 0.
         while n_steps is None or step < n_steps:
 
             # Choose A from S epsilon greedily
@@ -61,11 +65,18 @@ def sarsa(
                 break
             state = next_state
             step += 1
+            total_reward += reward
 
         # Update learning rates
-        alpha = alpha0 / (1 + decay * episode)
+        epsilon = epsilon0 / (1 + epsilon_decay * episode)
+        alpha = alpha0 / (1 + alpha_decay * episode)
         if isinstance(Q, LinearApproxActionValue):
             Q.step()
+
+        if verbose:
+            print(f'episode {episode + 1}:')
+            print(f'   steps: {step}')
+            print(f'   total reward: {total_reward}')
 
     return Q, policy
 
@@ -74,17 +85,20 @@ def q_learning(
     env: Env,
     starting_value: ActionValue,
     gamma: float = .9,
-    epsilon: float = .3,
+    epsilon: float = .1,
+    epsilon_decay: float = 1e-3,
     alpha: float = .1,
-    decay: float = 1e-3,
-    n_episodes: int = 10_000,
+    alpha_decay: float = 1e-3,
+    n_episodes: int = 200,
     n_steps: int | None = None,
+    verbose: bool = False,
 ):
     """
     Off-policy temporal difference learning.
     """
     Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
+    epsilon0 = epsilon
     alpha0 = alpha
 
     # For each episode
@@ -95,6 +109,7 @@ def q_learning(
 
         # For each step of the episode
         step = 0
+        total_reward = 0.
         while n_steps is None or step < n_steps:
 
             # Choose A from S epsilon greedily
@@ -118,10 +133,17 @@ def q_learning(
                 break
             state = next_state
             step += 1
+            total_reward += reward
 
-        # Update alpha
-        alpha = alpha0 / (1 + decay * (episode + 1))
+        # Update learning rates
+        epsilon = epsilon0 / (1 + epsilon_decay * episode)
+        alpha = alpha0 / (1 + alpha_decay * episode)
         if isinstance(Q, LinearApproxActionValue):
             Q.step()
+
+        if verbose:
+            print(f'episode {episode + 1}:')
+            print(f'   steps: {step}')
+            print(f'   total reward: {total_reward}')
 
     return Q, policy

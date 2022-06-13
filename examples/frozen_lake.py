@@ -6,16 +6,17 @@ from common import TabularPolicy, TabularStateValue, TabularActionValue
 from methods import *
 
 
-n_runs = 1_000
+# Variables of the example
+n_runs = 1_000  # number of runs used to evaluate the trained policy
 
 env = gym.make('FrozenLake-v1', is_slippery=True)
 methods = [
-    # 'policy_iteration',
-    # 'value_iteration',
+    'policy_iteration',
+    'value_iteration',
     'first_visit_mc',
-    # 'off_policy_mc',
-    # 'sarsa',
-    # 'q_learning',
+    'off_policy_mc',
+    'sarsa',
+    'q_learning',
 ]
 
 # Prepare plots
@@ -36,16 +37,22 @@ for i, m in enumerate(methods, start=1):
             n_states = env.observation_space.n
             n_actions = env.action_space.n
             args = (TabularPolicy(n_states, n_actions),)
+            kwargs = {}
         case 'value_iteration':
             n_states = env.observation_space.n
             args = (TabularStateValue(n_states),)
+            kwargs = {}
         case _:
             n_states = env.observation_space.n
             n_actions = env.action_space.n
             args = (TabularActionValue(n_states, n_actions),)
+            kwargs = {
+                'epsilon': .4,
+                'n_episodes': 10_000,
+            }
 
     # Find optimal value
-    value, policy = locals()[m](env, *args)
+    value, policy = locals()[m](env, *args, **kwargs)
 
     # Print resulting policy
     print(m)
