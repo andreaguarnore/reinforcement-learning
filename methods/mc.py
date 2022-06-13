@@ -19,7 +19,7 @@ def first_visit_mc(
     epsilon: float = .3,
     n_episodes: int = 10_000,
     n_steps: int | None = None,
-):
+) -> tuple[TabularActionValue, DerivedPolicy]:
     """
     On-policy first-visit Monte Carlo control.
     """
@@ -81,7 +81,7 @@ def off_policy_mc(
     epsilon: float = .3,
     n_episodes: int = 10_000,
     n_steps: int | None = None,
-):
+) -> tuple[TabularActionValue, DerivedPolicy]:
     """
     Off-policy Monte Carlo control via importance sampling.
     """

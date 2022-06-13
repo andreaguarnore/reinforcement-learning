@@ -23,11 +23,10 @@ def sarsa(
     n_episodes: int = 200,
     n_steps: int | None = None,
     verbose: bool = False,
-):
+) -> tuple[ActionValue, DerivedPolicy]:
     """
     On-policy temporal difference learning.
     """
-    values = []
     Q = deepcopy(starting_value)
     policy = DerivedPolicy(Q)
     epsilon0 = epsilon
@@ -92,7 +91,7 @@ def q_learning(
     n_episodes: int = 200,
     n_steps: int | None = None,
     verbose: bool = False,
-):
+) -> tuple[ActionValue, DerivedPolicy]:
     """
     Off-policy temporal difference learning.
     """
