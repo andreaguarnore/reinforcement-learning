@@ -1,102 +1,99 @@
+from itertools import chain
+
 import gym
-import matplotlib.pyplot as plt
 import numpy as np
 
-from common import TabularPolicy, TabularStateValue, TabularActionValue
-from methods import *
+from examples.frozen_lake_utils import *
+from mdp import (
+    TabularPolicy, TabularStateValue,
+    PolicyIteration, ValueIteration,
+)
+from rl import *
+from value import TabularActionValue
 
 
 # Variables of the example
+dp_args = {  # arguments for dynamic programming methods
+    'gamma': .9,
+    'theta': 1e-3,
+}
+rl_args = {  # arguments for reinforcement learning methods
+    'gamma': .9,
+    'alpha': .1,
+    'alpha_decay': 1e-3,
+    'epsilon': .8,
+    'epsilon_decay': 1e-4,
+    'epsilon_mode': 'exponential',
+}
+train_episodes = 100  # training episodes between error computation
+n_episodes = 10_000  # total number of episodes of training
 n_runs = 1_000  # number of runs used to evaluate the trained policy
 
+# Create environment
 env = gym.make('FrozenLake-v1', is_slippery=True)
-methods = [
-    'policy_iteration',
-    'value_iteration',
-    'first_visit_mc',
-    'off_policy_mc',
-    'sarsa',
-    'q_learning',
-]
+n_states = env.observation_space.n
+n_actions = env.action_space.n
+states_ignored = [5, 6, 11, 12, 15]  # states for which a policy is not useful
 
-# Prepare plots
-gridsize = (1, len(methods)) if len(methods) <= 3 else \
-    (2, 2) if len(methods) <= 4 else \
-    (2, 3) if len(methods) <= 6 else (3, 3)
-fig = plt.figure(figsize=(3 + gridsize[1] * 3, 2 + gridsize[0] * 1.75))
-rows = 4
-cols = 4
-x, y = np.meshgrid(np.arange(rows), np.arange(cols))
+dp_methods = [
+    PolicyIteration,
+    ValueIteration,
+]
+mc_methods = [
+    FirstVisitMC,
+    EveryVisitMC,
+    OffPolicyMC,
+]
+td_methods = [
+    Sarsa,
+    QLearning,
+]
+methods = dp_methods + mc_methods + td_methods
+errors = []  # keep track of mse
+values = []  # keep all final value functions
 
 # For each method
-for i, m in enumerate(methods, start=1):
+for i, method_cls in enumerate(methods, start=1):
 
-    # Initialize starting policy/value
-    match m:
-        case 'policy_iteration':
+    # Initialize method
+    match method_cls:
+        case pi if pi is PolicyIteration:
+            initial = TabularPolicy(n_states, n_actions)
+            kwargs = dp_args
+        case vi if vi is ValueIteration:
             n_states = env.observation_space.n
-            n_actions = env.action_space.n
-            args = (TabularPolicy(n_states, n_actions),)
-            kwargs = {}
-        case 'value_iteration':
-            n_states = env.observation_space.n
-            args = (TabularStateValue(n_states),)
-            kwargs = {}
-        case _:
-            n_states = env.observation_space.n
-            n_actions = env.action_space.n
-            args = (TabularActionValue(n_states, n_actions),)
-            kwargs = {
-                'epsilon': .4,
-                'n_episodes': 10_000,
-            }
+            initial = TabularStateValue(n_states)
+            kwargs = dp_args
+        case rl:
+            starting_value = TabularActionValue(n_states, n_actions)
+            kwargs = rl_args
 
     # Find optimal value
-    value, policy = locals()[m](env, *args, **kwargs)
+    if method_cls in dp_methods:
+        method = method_cls(initial, n_states, n_actions, env.P, **kwargs)
+        value, policy = method.solve()
+        optimal_value = value.to_array()
+    else:
+        method = method_cls(env, starting_value, save_episodes=True, **kwargs)
+        training_episodes = []
+        method_errors = []  # this method's mse
+        episode = 0
+        while episode < n_episodes:
+            value, policy, episodes = method.train(train_episodes)
+            training_episodes += episodes
+            mse = np.mean((value.to_array() - optimal_value) ** 2)
+            method_errors.append(mse)
+            episode += train_episodes
+    values.append(value.to_array())
 
-    # Print resulting policy
-    print(m)
-    print('   policy:')
-    for r in range(4):
-        print('      ', end='')
-        for c in range(4):
-            action = policy.sample_greedy(r * cols + c)
-            if action == 0: action_str = '← '
-            elif action == 1: action_str = '↓ '
-            elif action == 2: action_str = '→ '
-            else: action_str = '↑ '
-            print(action_str, end='')
-        print()
-
-    # Run some executions to evaluate policy
-    steps = 0
-    reached_goal = 0
-    for j in range(n_runs):
-        state = env.reset()
-        while True:
-            action = policy.sample_greedy(state)
-            next_state, reward, done, _ = env.step(action)
-            state = next_state
-            steps += 1
-            if done:
-                if reward == 1:
-                    reached_goal += 1
-                break
-
-    # Print results
-    print(f'   results over {n_runs} runs')
-    print(f'      avg steps until done: {steps / n_runs:.2f}')
-    print(f'      times reached goal: {reached_goal}')
+    # Evaluate training and learned policy
+    print(method_cls.__name__)
+    print_policy(policy, states_ignored)
+    if method_cls not in dp_methods:
+        eval_training(training_episodes)
+        errors.append(method_errors)
+    eval_episodes = eval_learned_policy(env, n_runs, policy)
     print()
 
-    # Convert value to surface and plot it
-    z = value.to_array().reshape((rows, cols))
-    ax = fig.add_subplot(*gridsize, i, projection='3d')
-    ax.plot_surface(x, y, z)
-    ax.set_xlabel('row')
-    ax.set_ylabel('column')
-    ax.set_zlabel('value')
-    ax.set_title(m)
-
-plt.tight_layout()
-plt.show()
+plot_errors(mc_methods + td_methods, errors, train_episodes)
+plot_values(methods, values)

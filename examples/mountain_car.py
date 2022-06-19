@@ -1,169 +1,82 @@
 import gym
-from gym import Env, ObservationWrapper
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.kernel_approximation import RBFSampler
 
-from common import (
-    FeaturizedEnv,
-    TabularPolicy, TabularStateValue,
-    TabularActionValue, LinearApproxActionValue,
-)
-from methods import *
+from rl import *
+from utils import FeaturizedEnv
+from value import LinearApproxActionValue
 
 
 # Variables of the example
 max_episode_steps = 10_000  # max number of steps of the environment
 n_features = 10_000  # number of features to be used
 n_samples = 1_000  # samples used to fit the featurizer
-quantiles = 30  # precision of the discretization of the environment
-n_runs = 100  # number of runs used to evaluate the trained policy
-n_tiles = 100  # precision of the plot for function approximation
+features_type = 'rbf'  # type of features to be used
+featurizer_args = {  # arguments of the featurizer
+    'gamma': 1.,
+}
+value_based_args = {  # arguments of the value-based methods
+    'epsilon': .4,
+    'epsilon_decay': 1e-4,
+}
+n_episodes = 10_000  # total number of training episodes
+n_episodes_log = 10  # number of episodes between logs
+n_runs = 10  # number of runs used to evaluate the trained policy
 
-# Environment wrapper which makes the states of
-# the mountain car problem discrete with `quantiles` bins.
-class MountainCarDiscrete(ObservationWrapper):
-
-    def __init__(self, env: Env, quantiles: int = 300) -> None:
-        super().__init__(env)
-        self.env = env
-        self.bins = []
-        self.quantiles = quantiles
-        os = self.env.observation_space
-        for dim in range(os.shape[0]):
-            self.bins.append(np.linspace(os.low[dim], os.high[dim], num=quantiles))
-
-    def observation(self, obs: tuple[float, ...]) -> np.array:
-        idx = 0
-        for i, (b, o) in enumerate(zip(self.bins, obs)):
-            idx += np.searchsorted(b, o) * (self.quantiles ** i)
-        return idx
-
-# Initialize default environment
+# Create environment
 gym.envs.register(
     id='MyMountainCar',
     entry_point='gym.envs.classic_control:MountainCarEnv',
     max_episode_steps=max_episode_steps,
 )
 base_env = gym.make('MyMountainCar')
+env = FeaturizedEnv(
+    env=base_env,
+    n_features=n_features,
+    n_samples=n_samples,
+    features_type=features_type,
+    featurizer_args=featurizer_args
+)
 
-# Create and fit featurizer
-# to the default environment
-featurizer = Pipeline([
-    ('scaler', StandardScaler()),
-    ('rbf_sampler', RBFSampler(gamma=1., n_components=n_features)),
-])
-samples = np.array([base_env.observation_space.sample() for _ in range(n_samples)])
-featurizer.fit(samples)
-
-# Create wrapped environments
-discrete_env = MountainCarDiscrete(base_env, quantiles)
-sample_size = discrete_env.observation_space.shape[0]
-continuous_states_env = FeaturizedEnv(base_env, featurizer)
-envs = [
-    # discrete_env,  # discrete states, discrete actions
-    continuous_states_env,  # continuous states, discrete actions
+# For each method
+rl_methods = [
+    Sarsa,
+    QLearning,
 ]
+for i, method_cls in enumerate(rl_methods, start=1):
 
-# Choose methods to be evaluated
-methods = [
-    # 'policy_iteration',
-    # 'value_iteration',
-    'sarsa',
-    'q_learning',
-]
+    # Create method object
+    match method_cls:
+        case vb if vb is Sarsa or QLearning:
+            starting_value = LinearApproxActionValue(n_features, env.action_space.n)
+            kwargs = value_based_args
+    method = method_cls(env, starting_value, **kwargs)
+    print(method_cls.__name__)
 
-# For each environment type
-from itertools import product
-for env, method in product(envs, methods):
+    # Training
+    episode = 0
+    while episode < n_episodes:
+        value, policy = method.train(n_episodes_log)
+        episode += n_episodes_log
+        print(episode)
 
-    # Create method's arguments
-    match (env, method):
-        case (e, 'policy_iteration') if e is discrete_env:
-            args = (
-                TabularPolicy(quantiles ** sample_size, env.action_space.n),
-            )
-            kwargs = {}
-        case (e, 'value_iteration') if e is discrete_env:
-            args = (
-                TabularStateValue(quantiles ** sample_size),
-            )
-            kwargs = {}
-        case (e, _) if e is discrete_env:
-            args = (
-                TabularActionValue(quantiles ** sample_size, env.action_space.n),
-            )
-            kwargs = {
-                'epsilon': .3,
-                'n_episodes': 1_000,
-                'verbose': True,
-            }
-        case (e, 'sarsa' | 'q_learning') if e is continuous_states_env:
-            args = (
-                LinearApproxActionValue(n_features, env.action_space.n),
-            )
-            kwargs = {
-                'epsilon': .3,
-                'verbose': True,
-            }
-        case _:  # invalid env-method combination
-            continue
+        # Run some executions to evaluate policy
+        steps = 0
+        reached_goal = 0
+        for j in range(n_runs):
+            state = env.reset()
+            while True:
+                action = policy.sample_greedy(state)
+                next_state, reward, done, _ = env.step(action)
+                state = next_state
+                steps += 1
+                if done:
+                    if reward == 0:
+                        reached_goal += 1
+                    break
 
-    # Run method
-    env_str = 'discrete' if env is discrete_env else 'continuous states'
-    print(f'training for {env_str} environment with {method}')
-    value, policy = locals()[method](env, *args, **kwargs)
-
-    # Run some executions to evaluate policy
-    print('evaluating learned policy')
-    steps = 0
-    reached_goal = 0
-    for j in range(n_runs):
-        state = env.reset()
-        while True:
-            action = policy.sample_greedy(state)
-            next_state, reward, done, _ = env.step(action)
-            state = next_state
-            steps += 1
-            if done:
-                if steps != max_episode_steps:
-                    reached_goal += 1
-                break
-
-    # Print results
-    print(f'   results over {n_runs} runs')
-    print(f'      avg steps until done: {steps / n_runs:.2f}')
-    print(f'      times reached goal: {reached_goal}')
-    print()
-
-    # Compute surface
-    if env is discrete_env:
-        X, Y = np.meshgrid(np.arange(quantiles), np.arange(quantiles))
-        cost_to_go = -value.to_array()
-        Z = np.reshape(cost_to_go, (quantiles, quantiles))
-    else:
-        os = env.observation_space
-        X, Y = np.meshgrid(
-            np.linspace(os.low[0], os.high[0], num=n_tiles),
-            np.linspace(os.low[1], os.high[1], num=n_tiles),
-        )
-        Z = np.apply_along_axis(
-            lambda _: -np.max(
-                # Q.wh[episode].T @ featurizer.transform([_]).squeeze()
-                value.all_values(featurizer.transform([_]).squeeze())
-            ),
-            2,
-            np.dstack([X, Y])
-        )
-
-    # Plot surface and save it
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_xlabel('position')
-    ax.set_ylabel('velocity')
-    ax.set_zlabel('cost to go')
-    ax.set_title(f'{method}, {env_str} environment')
-    surface = ax.plot_surface(X, Y, Z, cmap=plt.cm.YlGnBu_r)
-    fig.savefig(f'examples/mountain_car_{env_str}_{method}.png')
+        # Print results
+        print(f'   results over {n_runs} runs')
+        print(f'      avg steps until done: {steps / n_runs:.2f}')
+        print(f'      times reached goal: {reached_goal}')
+        print()

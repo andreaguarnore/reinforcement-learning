@@ -1,14 +1,12 @@
 __all__ = [
     'LinearApproxActionValue',
-    'FeaturizedEnv',
 ]
 
 
-from gym import Env, ObservationWrapper
 import numpy as np
-from sklearn.base import BaseEstimator
+import numpy.typing as npt
 
-from common import ActionValue
+from value import ActionValue
 
 
 class LinearApproxActionValue(ActionValue):
@@ -30,15 +28,15 @@ class LinearApproxActionValue(ActionValue):
         self.episode = 0
         self.w = np.zeros((n_features, n_actions))
 
-    def of(self, features: tuple[float, ...], action: int) -> float:
+    def of(self, features: npt.NDArray[float], action: int) -> float:
         return self.w[:, action].T @ features
 
-    def all_values(self, features: tuple[float, ...]) -> np.ndarray:
+    def all_values(self, features: npt.NDArray[float]) -> npt.NDArray[float]:
         return self.w.T @ features
 
     def update(
         self,
-        features: tuple[float, ...],
+        features: npt.NDArray[float],
         action: int,
         update: float
     ) -> None:
@@ -51,17 +49,7 @@ class LinearApproxActionValue(ActionValue):
         self.lr = self.lr0 / (1 + self.decay * self.episode)
         self.episode += 1
 
-
-class FeaturizedEnv(ObservationWrapper):
-    """
-    Environment wrapper which transforms states into features. Expects an
-    `sklearn`-like fitted estimator with a `transform` method.
-    """
-
-    def __init__(self, env: Env, featurizer: BaseEstimator) -> None:
-        super().__init__(env)
-        self.env = env
-        self.featurizer = featurizer
-
-    def observation(self, obs: tuple[float, ...]) -> np.array:
-        return self.featurizer.transform([obs]).squeeze()
+    def to_array(self, meshgrid: npt.NDArray[float]) -> npt.NDArray[float]:
+        return np.apply_along_axis(
+            lambda _: np.max(self.all_values(_)), 2, meshgrid,
+        )

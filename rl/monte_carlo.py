@@ -1,0 +1,177 @@
+__all__ = [
+    'FirstVisitMC',
+    'EveryVisitMC',
+    'OffPolicyMC',
+]
+
+
+from gym import Env
+import numpy as np
+
+from policy import DerivedPolicy
+from rl import ValueBasedMethod
+from value import ActionValue
+
+
+def generate_episode(
+    env: Env,
+    policy: DerivedPolicy,
+    epsilon: float,
+    n_steps: int | None,
+) -> list[tuple[int, int, float]]:
+    """
+    Generate an episode following the given policy
+    """
+    episode = []
+    state = env.reset()
+    step = 0
+    while n_steps is None or step < n_steps:
+        action = policy.sample_epsilon_greedy(state, epsilon)
+        next_state, reward, done, _ = env.step(action)
+        episode.append((state, action, reward))
+        if done:
+            break
+        state = next_state
+        step += 1
+    return episode
+
+
+class OnPolicyMC(ValueBasedMethod):
+
+    def __init__(
+        self,
+        first_visit: bool,
+        env: Env,
+        starting_value: ActionValue,
+        **kwargs,
+    ) -> None:
+        super().__init__(env, starting_value, **kwargs)
+        self.first_visit = first_visit
+        self.n_states = env.observation_space.n
+        self.n_actions = env.action_space.n
+        self.returns = np.zeros((self.n_states, self.n_actions))
+        self.counts = np.zeros((self.n_states, self.n_actions), dtype=int)
+
+    def train_episode(
+        self,
+        n_steps: int | None = None,
+        save_episode: bool = False,
+    ) -> None | list[tuple[int | float, int | float, float]]:
+
+        # Generate an episode
+        episode = generate_episode(self.env, self.pi, self.epsilon, n_steps)
+
+        # Make a list of all visited state-action pairs for which we will compute an update
+        if self.first_visit:
+            visited = []
+            for step, (state, action, reward) in enumerate(episode):
+                if (state, action) not in visited:
+                    visited.append((step, (state, action, reward)))
+        else:
+            visited = enumerate(episode)
+
+        # For all visited state-action pairs
+        for step, (state, action, _) in visited:
+
+            # Compute return starting from the step of the visit
+            G = sum([r * self.gamma ** t for t, (_, _, r) in enumerate(episode[step:])])
+
+            # Incrementally update value
+            self.returns[state, action] += G
+            self.counts[state, action] += 1
+            exp_G = self.returns[state, action] / self.counts[state, action]
+            update = self.alpha * (exp_G - self.Q.of(state, action))
+            self.Q.update(state, action, update)
+
+        if save_episode:
+            return episode
+
+
+class FirstVisitMC(OnPolicyMC):
+    """
+    On-policy first-visit Monte Carlo learning.
+    """
+
+    def __init__(
+        self,
+        env: Env,
+        starting_value: ActionValue,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            first_visit=True,
+            env=env,
+            starting_value=starting_value,
+            **kwargs,
+        )
+
+
+class EveryVisitMC(OnPolicyMC):
+    """
+    On-policy every-visit Monte Carlo learning.
+    """
+
+    def __init__(
+        self,
+        env: Env,
+        starting_value: ActionValue,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            first_visit=False,
+            env=env,
+            starting_value=starting_value,
+            **kwargs,
+        )
+
+
+class OffPolicyMC(ValueBasedMethod):
+    """
+    Off-policy Monte Carlo learning.
+    """
+
+    def __init__(
+        self,
+        env: Env,
+        starting_value: ActionValue,
+        **kwargs,
+    ) -> None:
+        super().__init__(env, starting_value, **kwargs)
+        self.n_states = env.observation_space.n
+        self.n_actions = env.action_space.n
+
+        # Cumulative sum of the weights given the first `n` returns
+        self.C = np.zeros((self.n_states, self.n_actions))
+
+    def train_episode(
+        self,
+        n_steps: int | None = None,
+        save_episode: bool = False,
+    ) -> None | list[tuple[int | float, int | float, float]]:
+
+        # Generate an episode
+        episode = generate_episode(self.env, self.pi, self.epsilon, n_steps)
+
+        # For each step of the episode, starting from the last one
+        G = 0.
+        W = 1.
+        for state, action, reward in reversed(episode):
+
+            # Weight return according to similarity between policies
+            G = self.gamma * G + reward
+            self.C[state, action] += W
+
+            # Update value towards corrected return
+            update = (W / self.C[state, action]) * self.alpha * (G - self.Q.of(state, action))
+            self.Q.update(state, action, update)
+
+            # Stop looping if policies do not match
+            greedy_action = self.pi.sample_greedy(state)
+            if action != greedy_action:
+                break
+
+            # Update weights
+            W = W / self.pi.epsilon_probabilities(state, self.epsilon)[action]
+
+        if save_episode:
+            return episode
