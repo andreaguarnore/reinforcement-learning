@@ -75,22 +75,23 @@ for i, method_cls in enumerate(methods, start=1):
         optimal_value = value.to_array()
     else:
         method = method_cls(env, starting_value, save_episodes=True, **kwargs)
-        training_episodes = []
+        # training_episodes = []
         method_errors = []  # this method's mse
         episode = 0
         while episode < n_episodes:
-            value, policy, episodes = method.train(train_episodes)
-            training_episodes += episodes
+            value, policy = method.train(train_episodes)
+            # training_episodes += episodes
             mse = np.mean((value.to_array() - optimal_value) ** 2)
             method_errors.append(mse)
             episode += train_episodes
     values.append(value.to_array())
 
     # Evaluate training and learned policy
-    print(method_cls.__name__)
+    method_name = method_cls.__name__
+    print(method_name)
     print_policy(policy, states_ignored)
     if method_cls not in dp_methods:
-        eval_training(training_episodes)
+        eval_training(method_name)
         errors.append(method_errors)
     eval_episodes = eval_learned_policy(env, n_runs, policy)
     print()

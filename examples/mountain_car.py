@@ -25,11 +25,12 @@ value_based_args = {  # arguments of the value-based methods
     'epsilon_mode': 'exponential',
 }
 policy_based_args = {  # arguments of the policy-based methods
-    # 
+    'gamma': .9,
+    'alpha': .1,
+    'alpha_decay': 1e-3,
 }
-n_episodes = 10_000  # total number of training episodes
-n_episodes_log = 10  # number of episodes between logs
-n_runs = 10  # number of runs used to evaluate the trained policy
+n_episodes = 10_000  # total number of episodes of training
+n_runs = 50  # number of runs used to evaluate the trained policy
 
 # Create environment
 gym.envs.register(
@@ -46,7 +47,6 @@ env = FeaturizedEnv(
     featurizer_args=featurizer_args
 )
 
-# For each method
 vb_methods = [
     # Sarsa,
     # QLearning,
@@ -55,51 +55,52 @@ pb_methods = [
     # Reinforce,
     ActorCritic,
 ]
+
+# For each method
 for i, method_cls in enumerate(vb_methods + pb_methods, start=1):
 
-    # Create method object
+    # Initialize method
     match method_cls:
         case vb if vb in vb_methods:
             starting_value = LinearApproxActionValue(n_features, env.action_space.n)
             kwargs = value_based_args
-            method = method_cls(env, starting_value, **kwargs)
+            method = method_cls(env, starting_value, verbose=True, **kwargs)
         case reinforce if reinforce is Reinforce:
             starting_policy = SoftmaxPolicy(n_features, env.action_space.n)
             kwargs = policy_based_args
-            method = method_cls(env, starting_policy, **kwargs)
+            method = method_cls(env, starting_policy, verbose=True, **kwargs)
         case actor_critic if actor_critic is ActorCritic:
             starting_policy = SoftmaxPolicy(n_features, env.action_space.n)
             starting_value = LinearApproxActionValue(n_features, env.action_space.n)
             kwargs = policy_based_args
-            method = method_cls(env, starting_policy, starting_value, **kwargs)
+            method = method_cls(env, starting_policy, starting_value, verbose=True, **kwargs)
 
     print(method_cls.__name__)
 
     # Training
     episode = 0
-    while episode < n_episodes:
-        if method_cls in vb_methods: value, policy = method.train(n_episodes_log)
-        else: policy = method.train(n_episodes_log)
-        episode += n_episodes_log
-        print(episode)
+    if method_cls in vb_methods:
+        value, policy = method.train(n_episodes)
+    else:
+        policy = method.train(n_episodes)
 
-        # Run some executions to evaluate policy
-        reached_goal = 0
-        for j in range(n_runs):
-            steps = 0
-            state = env.reset()
-            while True:
-                if method_cls in vb_methods: action = policy.sample_greedy(state)
-                else: action = policy.sample(state)
-                next_state, reward, done, _ = env.step(action)
-                state = next_state
-                steps += 1
-                if done:
-                    if steps != max_episode_steps:
-                        reached_goal += 1
-                    break
+    # Run some executions to evaluate policy
+    reached_goal = 0
+    for j in range(n_runs):
+        steps = 0
+        state = env.reset()
+        while True:
+            if method_cls in vb_methods: action = policy.sample_greedy(state)
+            else: action = policy.sample(state)
+            next_state, reward, done, _ = env.step(action)
+            state = next_state
+            steps += 1
+            if done:
+                if steps != max_episode_steps:
+                    reached_goal += 1
+                break
 
-        # Print results
-        print(f'   results over {n_runs} runs')
-        print(f'      times reached goal: {reached_goal}')
-        print()
+    # Print results
+    print(f'   results over {n_runs} runs')
+    print(f'      times reached goal: {reached_goal}')
+    print()

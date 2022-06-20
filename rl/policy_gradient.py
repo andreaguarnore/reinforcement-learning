@@ -20,11 +20,7 @@ class Reinforce(PolicyBasedMethod):
     Monte Carlo policy gradient.
     """
 
-    def train_episode(
-        self,
-        n_steps: int | None = None,
-        save_episode: bool = False,
-    ) -> None | list[tuple[int | float, int | float, float]]:
+    def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Generate an episode
         episode = generate_episode(
@@ -33,6 +29,8 @@ class Reinforce(PolicyBasedMethod):
             dict(),
             n_steps,
         )
+        if self.save_episodes:
+            self.file_logger.save_episode(episode)
 
         # Compute all returns
         returns = np.zeros(len(episode))
@@ -48,8 +46,7 @@ class Reinforce(PolicyBasedMethod):
         # Update the learning rate
         self.pi.step()
 
-        if save_episode:
-            return episode
+        return len(episode), sum([r for _, _, r in episode])
 
 
 class ActorCritic(PolicyBasedMethod):
@@ -69,14 +66,7 @@ class ActorCritic(PolicyBasedMethod):
         super().__init__(env, starting_policy, **kwargs)
         self.Q = deepcopy(starting_value)
 
-    def train_episode(
-        self,
-        n_steps: int | None = None,
-        save_episode: bool = False,
-    ) -> None | list[tuple[int | float, int | float, float]]:
-
-        if save_episode:
-            episode = []
+    def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Initialize S and A
         state = self.env.reset()
@@ -84,13 +74,15 @@ class ActorCritic(PolicyBasedMethod):
 
         # For each step of the episode
         step = 0
+        total_reward = 0.
         while n_steps is None or step < n_steps:
 
             # Take action A, observe R, S'
             next_state, reward, done, _ = self.env.step(action)
+            total_reward += reward
 
-            if save_episode:
-                episode.append((state, action, reward))
+            if self.save_episodes:
+                self.file_logger.save_episode_step(state, action, reward)
 
             # Choose A' from S' using the policy
             next_action = self.pi.sample(next_state)
@@ -120,5 +112,4 @@ class ActorCritic(PolicyBasedMethod):
         self.pi.step()
         self.Q.step()
 
-        if save_episode:
-            return episode
+        return step, total_reward

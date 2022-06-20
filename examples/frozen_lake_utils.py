@@ -8,11 +8,13 @@ __all__ = [
 ]
 
 
+from os.path import join
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def print_policy(policy, states_ignored, rows: int = 4, cols: int = 4):
+def print_policy(policy, states_ignored, rows=4, cols=4):
     """
     Print the learned policy for each state of the lake.
     """
@@ -33,7 +35,26 @@ def print_policy(policy, states_ignored, rows: int = 4, cols: int = 4):
         print()
 
 
-def eval_episodes(title, episodes, generated):
+def read_episode(log_file):
+    """
+    Read an episode from a log file.
+    """
+    all_episodes = []
+    episode = []
+    prev_episode = 0
+    with open(log_file) as file:
+        for line in file:
+            curr_episode, state, action, reward = line.split()
+            curr_episode, state, action, reward = int(curr_episode), int(state), int(action), float(reward)
+            if prev_episode != curr_episode:
+                prev_episode = curr_episode
+                all_episodes.append(episode)
+                episode = []
+            episode.append((state, action, reward))
+    return all_episodes
+
+
+def eval_episodes(episodes, title, generated):
 
     # Count steps needed to reach special state for each episode
     reached_goal = []  # steps to reach goal
@@ -52,7 +73,7 @@ def eval_episodes(title, episodes, generated):
             reached_hole.append(len(e))
 
     # Print results
-    print(f'   {title}')
+    print(f'   {title.format(len(episodes))}')
     print(f'      pct reached goal:                  {len(reached_goal) / len(episodes) * 100.:.2f}')
     if not generated:
         print(f'      pct reached goal after first goal: {reached_goal_after_first / max(len(episodes) - (first_reach_goal or 0.), 1.) * 100:.2f}')
@@ -62,8 +83,9 @@ def eval_episodes(title, episodes, generated):
     print(f'      sd of steps to reach goal:         {np.std(reached_hole):.2f}')
 
 
-def eval_training(episodes):
-    eval_episodes(f'results over {len(episodes)} episodes of training', episodes, False)
+def eval_training(method_name):
+    episodes = read_episode(join('logs', f'{method_name}.log'))
+    eval_episodes(episodes, 'results over {} episodes of training', False)
 
 
 def eval_learned_policy(env, n_runs, policy):
@@ -83,7 +105,7 @@ def eval_learned_policy(env, n_runs, policy):
         episodes.append(episode)
 
     # Evaluate the generated episodes
-    eval_episodes(f'results over {n_runs} generated runs of evaluation:', episodes, True)
+    eval_episodes(episodes, 'results over {} generated runs of evaluation:', True)
 
     return episodes
 

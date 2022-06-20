@@ -5,11 +5,13 @@ __all__ = [
 
 
 from copy import deepcopy
+import os
 
 from gym import Env
 import numpy as np
 
 from policy import DerivedPolicy, ParameterizedPolicy
+from utils import Logger
 from value import ActionValue
 
 
@@ -22,48 +24,46 @@ class Method:
     def __init__(
         self,
         env: Env,
-        save_episodes = False,
+        verbose: bool = False,
+        save_episodes: bool = False,
         gamma: float = .9,
         alpha: float = .1,
         alpha_decay: float = 1e-3,
     ) -> None:
         self.env = env
+        self.verbose = verbose
         self.save_episodes = save_episodes
+        if verbose:
+            self.logger = Logger(f'{hash(self)}_info')
+        if self.save_episodes:
+            if not os.path.exists('logs'):
+                os.makedirs('logs')
+            self.file_logger = Logger(f'{hash(self)}_episodes', f'logs/{type(self).__name__}.log')
         self.gamma = gamma
         self.lrs = {
             'alpha': (alpha, alpha_decay, 'robbins_monro'),
         }
         self.total_episodes = 0
 
-    def train_episode(
-        self,
-        n_steps: int | None = None,
-        save_episode: bool = False,
-    ) -> None | list[tuple[int | float, int | float, float]]:
+    def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
         """
         Train for one episode. Should never be called directly, but only through the `train` method.
-        Returns a list of `(state, action, reward)` tuples if `save_episode` is true.
+        Returns the length of the episode and the total reward obtained during the episode.
         """
         raise NotImplementedError
 
-    def train(
-        self,
-        n_episodes: int,
-        n_steps: int | None = None,
-    ) -> None | list[list[tuple[int | float, int | float, float]], ...]:
+    def train(self, n_episodes: int, n_steps: int | None = None) -> None:
         """
         Train for `n_episodes` episodes.
         """
-        if self.save_episodes:
-            saved_episodes = []
         for _ in range(n_episodes):
             self.update_lrs(self.total_episodes)
-            episode = self.train_episode(n_steps, self.save_episodes)
-            if self.save_episodes:
-                saved_episodes.append(episode)
+            episode_steps, total_reward = self.train_episode(n_steps)
             self.total_episodes += 1
-        if self.save_episodes:
-            return saved_episodes
+            if self.verbose:
+                self.logger.log_training_episode(self.total_episodes, episode_steps, total_reward)
+            if self.save_episodes:
+                self.file_logger.new_episode()
 
     def update_lrs(self, episode: int) -> None:
         """
@@ -98,9 +98,7 @@ class ValueBasedMethod(Method):
         })
 
     def train(self, n_episodes: int, **kwargs) -> None:
-        saved_episodes = super().train(n_episodes, **kwargs)
-        if self.save_episodes:
-            return self.Q, self.pi, saved_episodes
+        super().train(n_episodes, **kwargs)
         return self.Q, self.pi
 
 
@@ -116,7 +114,5 @@ class PolicyBasedMethod(Method):
         self.pi = deepcopy(starting_policy)
 
     def train(self, n_episodes: int, **kwargs) -> None:
-        saved_episodes = super().train(n_episodes, **kwargs)
-        if self.save_episodes:
-            return self.pi, saved_episodes
+        super().train(n_episodes, **kwargs)
         return self.pi

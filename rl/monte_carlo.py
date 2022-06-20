@@ -30,11 +30,7 @@ class OnPolicyMC(ValueBasedMethod):
         self.returns = np.zeros((self.n_states, self.n_actions))
         self.counts = np.zeros((self.n_states, self.n_actions), dtype=int)
 
-    def train_episode(
-        self,
-        n_steps: int | None = None,
-        save_episode: bool = False,
-    ) -> None | list[tuple[int | float, int | float, float]]:
+    def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Generate an episode
         episode = generate_episode(
@@ -43,6 +39,8 @@ class OnPolicyMC(ValueBasedMethod):
             {'epsilon': self.epsilon},
             n_steps
         )
+        if self.save_episodes:
+            self.file_logger.save_episode(episode)
 
         # Make a list of all visited state-action pairs for which we will compute an update
         if self.first_visit:
@@ -54,7 +52,7 @@ class OnPolicyMC(ValueBasedMethod):
             visited = enumerate(episode)
 
         # For all visited state-action pairs
-        for step, (state, action, _) in visited:
+        for step, (state, action, reward) in visited:
 
             # Compute return starting from the step of the visit
             G = sum([r * self.gamma ** t for t, (_, _, r) in enumerate(episode[step:])])
@@ -66,8 +64,7 @@ class OnPolicyMC(ValueBasedMethod):
             update = self.alpha * (exp_G - self.Q.of(state, action))
             self.Q.update(state, action, update)
 
-        if save_episode:
-            return episode
+        return len(episode), sum([r for _, _, r in episode])
 
 
 class FirstVisitMC(OnPolicyMC):
@@ -126,19 +123,17 @@ class OffPolicyMC(ValueBasedMethod):
         # Cumulative sum of the weights given the first `n` returns
         self.C = np.zeros((self.n_states, self.n_actions))
 
-    def train_episode(
-        self,
-        n_steps: int | None = None,
-        save_episode: bool = False,
-    ) -> None | list[tuple[int | float, int | float, float]]:
+    def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Generate an episode
         episode = generate_episode(
             self.env,
             self.pi.sample_epsilon_greedy,
             {'epsilon': self.epsilon},
-            n_steps
+            n_steps,
         )
+        if self.save_episodes:
+            self.file_logger.save_episode(episode)
 
         # For each step of the episode, starting from the last one
         G = 0.
@@ -161,5 +156,4 @@ class OffPolicyMC(ValueBasedMethod):
             # Update weights
             W = W / self.pi.epsilon_probabilities(state, self.epsilon)[action]
 
-        if save_episode:
-            return episode
+        return len(episode), sum([r for _, _, r in episode])

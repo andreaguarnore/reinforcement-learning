@@ -25,20 +25,14 @@ class TDMethod(ValueBasedMethod):
         super().__init__(env, starting_value, **kwargs)
         self.greedy_next_action = greedy_next_action
 
-    def train_episode(
-        self,
-        n_steps: int | None = None,
-        save_episode: bool = False,
-    ) -> None | list[tuple[int | float, int | float, float]]:
-
-        if save_episode:
-            episode = []
+    def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Initialize S
         state = self.env.reset()
 
         # For each step of the episode
         step = 0
+        total_reward = 0.
         while n_steps is None or step < n_steps:
 
             # Choose A from S epsilon greedily using the policy derived from Q
@@ -46,9 +40,10 @@ class TDMethod(ValueBasedMethod):
 
             # Take action A, observe R, S'
             next_state, reward, done, _ = self.env.step(action)
+            total_reward += reward
 
-            if save_episode:
-                episode.append((state, action, reward))
+            if self.save_episodes:
+                self.file_logger.save_episode_step(state, action, reward)
 
             # Choose A' from S' using the behavior policy
             if self.greedy_next_action: next_action = self.pi.sample_greedy(next_state)
@@ -72,8 +67,7 @@ class TDMethod(ValueBasedMethod):
         if isinstance(self.Q, LinearApproxActionValue):
             self.Q.step()
 
-        if save_episode:
-            return episode
+        return step, total_reward
 
 
 class Sarsa(TDMethod):
