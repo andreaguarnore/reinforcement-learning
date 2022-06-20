@@ -18,7 +18,7 @@ class DerivedPolicy:
         self.Q = Q
         self.n_actions = Q.n_actions
 
-    def epsilon_probabilities(self, state,epsilon: float = .1) -> npt.NDArray[float]:
+    def epsilon_probabilities(self, state, epsilon: float = .1) -> npt.NDArray[float]:
         """
         Return the epsilon probability distribution for the given state.
         """

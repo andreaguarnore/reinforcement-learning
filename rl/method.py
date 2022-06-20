@@ -1,5 +1,6 @@
 __all__ = [
     'ValueBasedMethod',
+    'PolicyBasedMethod',
 ]
 
 
@@ -8,7 +9,7 @@ from copy import deepcopy
 from gym import Env
 import numpy as np
 
-from policy import DerivedPolicy
+from policy import DerivedPolicy, ParameterizedPolicy
 from value import ActionValue
 
 
@@ -49,7 +50,7 @@ class Method:
         self,
         n_episodes: int,
         n_steps: int | None = None,
-    ) -> None:
+    ) -> None | list[list[tuple[int | float, int | float, float]], ...]:
         """
         Train for `n_episodes` episodes.
         """
@@ -62,8 +63,7 @@ class Method:
                 saved_episodes.append(episode)
             self.total_episodes += 1
         if self.save_episodes:
-            return self.Q, self.pi, saved_episodes
-        return self.Q, self.pi
+            return saved_episodes
 
     def update_lrs(self, episode: int) -> None:
         """
@@ -89,10 +89,34 @@ class ValueBasedMethod(Method):
         epsilon_decay: float = .1,
         epsilon_mode: str = 'exponential',
         **kwargs,
-    ):
+    ) -> None:
         super().__init__(env, **kwargs)
         self.Q = deepcopy(starting_value)
         self.pi = DerivedPolicy(self.Q)
         self.lrs.update({
             'epsilon': (epsilon, epsilon_decay, epsilon_mode),
         })
+
+    def train(self, n_episodes: int, **kwargs) -> None:
+        saved_episodes = super().train(n_episodes, **kwargs)
+        if self.save_episodes:
+            return self.Q, self.pi, saved_episodes
+        return self.Q, self.pi
+
+
+class PolicyBasedMethod(Method):
+
+    def __init__(
+        self,
+        env: Env,
+        starting_policy: ParameterizedPolicy,
+        **kwargs,
+    ) -> None:
+        super().__init__(env, **kwargs)
+        self.pi = deepcopy(starting_policy)
+
+    def train(self, n_episodes: int, **kwargs) -> None:
+        saved_episodes = super().train(n_episodes, **kwargs)
+        if self.save_episodes:
+            return self.pi, saved_episodes
+        return self.pi

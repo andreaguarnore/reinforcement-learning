@@ -10,30 +10,8 @@ import numpy as np
 
 from policy import DerivedPolicy
 from rl import ValueBasedMethod
+from utils import generate_episode
 from value import ActionValue
-
-
-def generate_episode(
-    env: Env,
-    policy: DerivedPolicy,
-    epsilon: float,
-    n_steps: int | None,
-) -> list[tuple[int, int, float]]:
-    """
-    Generate an episode following the given policy
-    """
-    episode = []
-    state = env.reset()
-    step = 0
-    while n_steps is None or step < n_steps:
-        action = policy.sample_epsilon_greedy(state, epsilon)
-        next_state, reward, done, _ = env.step(action)
-        episode.append((state, action, reward))
-        if done:
-            break
-        state = next_state
-        step += 1
-    return episode
 
 
 class OnPolicyMC(ValueBasedMethod):
@@ -59,7 +37,12 @@ class OnPolicyMC(ValueBasedMethod):
     ) -> None | list[tuple[int | float, int | float, float]]:
 
         # Generate an episode
-        episode = generate_episode(self.env, self.pi, self.epsilon, n_steps)
+        episode = generate_episode(
+            self.env,
+            self.pi.sample_epsilon_greedy,
+            {'epsilon': self.epsilon},
+            n_steps
+        )
 
         # Make a list of all visited state-action pairs for which we will compute an update
         if self.first_visit:
@@ -150,7 +133,12 @@ class OffPolicyMC(ValueBasedMethod):
     ) -> None | list[tuple[int | float, int | float, float]]:
 
         # Generate an episode
-        episode = generate_episode(self.env, self.pi, self.epsilon, n_steps)
+        episode = generate_episode(
+            self.env,
+            self.pi.sample_epsilon_greedy,
+            {'epsilon': self.epsilon},
+            n_steps
+        )
 
         # For each step of the episode, starting from the last one
         G = 0.
