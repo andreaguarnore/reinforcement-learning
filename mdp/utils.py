@@ -69,7 +69,7 @@ class TabularPolicy:
         """
         return self.policy[state]
 
-    def make_deterministic(self, state: int, action: int):
+    def make_deterministic(self, state: int, action: int) -> None:
         """
         Make policy deterministic in the given state.
         """

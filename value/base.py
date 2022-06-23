@@ -23,7 +23,7 @@ class ActionValue:
         """
         raise NotImplementedError
 
-    def update(self, state, action: int, value: float) -> None:
+    def update(self, state, action: int, delta: float) -> None:
         """
         Update value of a given state-action pair.
         """

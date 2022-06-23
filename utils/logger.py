@@ -9,6 +9,9 @@ from logging import Formatter
 
 
 class Logger:
+    """
+    Used for either logging on `stdout` or in a file.
+    """
 
     def __init__(self, logger_name: str, filename: str = None, tab_size: int = 3) -> None:
         log_format = '%(message)s'
@@ -42,9 +45,9 @@ class Logger:
         self.logger.info(f'{self.tab}steps: {n_steps}')
         self.logger.info(f'{self.tab}total reward: {total_reward:.2f}\n')
 
-    def save_episode_step(self, state: int | float, action: int, reward: float) -> None:
+    def save_episode_step(self, state: int, action: int, reward: float) -> None:
         """
-        Save to file a step of an episode.
+        Save to file a step of an episode. Expects a state and not a set of features.
         """
         self.logger.info(f'{self.episode} {state} {action} {reward}')
 

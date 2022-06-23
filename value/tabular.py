@@ -25,8 +25,8 @@ class TabularActionValue(ActionValue):
     def all_values(self, state: int) -> npt.NDArray[float]:
         return self.Q[state]
 
-    def update(self, state: int, action: int, update: float) -> None:
-        self.Q[state][action] += update
+    def update(self, state: int, action: int, delta: float) -> None:
+        self.Q[state][action] += delta
 
     def to_array(self) -> npt.NDArray[float]:
         return np.max(self.Q, axis=1)

@@ -4,14 +4,12 @@ __all__ = [
 ]
 
 
-from copy import deepcopy
-
 from gym import Env
 import numpy as np
 
 from policy import ParameterizedPolicy
 from rl import PolicyBasedMethod
-from utils import generate_episode
+from utils import generate_episode, LinearLR
 from value import LinearApproxActionValue
 
 
@@ -40,7 +38,7 @@ class Reinforce(PolicyBasedMethod):
 
         # Update weights at each step of the episode
         for step, ((state, action, _), G) in enumerate(zip(episode, returns)):
-            update = self.alpha * self.gamma ** step * G
+            update = self.alpha.lr * self.gamma ** step * G
             self.pi.update(state, action, update)
 
         # Update the learning rate
@@ -61,21 +59,26 @@ class ActorCritic(PolicyBasedMethod):
         env: Env,
         starting_policy: ParameterizedPolicy,
         starting_value: LinearApproxActionValue,
+        value_alpha: LinearLR = None,
         **kwargs,
     ) -> None:
         super().__init__(env, starting_policy, **kwargs)
-        self.Q = deepcopy(starting_value)
+        self.Q = starting_value
+        self.value_alpha = LinearLR() if value_alpha is None else value_alpha
+        self.lrs.append([self.value_alpha, self.Q.lr])
 
     def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Initialize S and A
         state = self.env.reset()
-        action = self.pi.sample(state)
 
         # For each step of the episode
         step = 0
         total_reward = 0.
         while n_steps is None or step < n_steps:
+
+            # Choose A from the current policy
+            action = self.pi.sample(state)
 
             # Take action A, observe R, S'
             next_state, reward, done, _ = self.env.step(action)
@@ -88,16 +91,16 @@ class ActorCritic(PolicyBasedMethod):
             next_action = self.pi.sample(next_state)
 
             # Update policy parameters
-            update = self.alpha * self.Q.of(state, action)
-            self.pi.update(state, action, update)
+            delta = self.alpha.lr * self.Q.of(state, action)
+            self.pi.update(state, action, delta)
 
             # Compute TD error
             target = reward + self.gamma * self.Q.of(next_state, next_action)
             error = target - self.Q.of(state, action)
 
             # Update value parameters
-            update = self.alpha * error
-            self.Q.update(state, action, update)
+            delta = self.value_alpha.lr * error
+            self.Q.update(state, action, delta)
 
             # Stop if the environment has terminated
             if done:
@@ -105,7 +108,6 @@ class ActorCritic(PolicyBasedMethod):
 
             # Prepare for the next step
             state = next_state
-            action = next_action
             step += 1
 
         # Update the learning rates
@@ -113,3 +115,7 @@ class ActorCritic(PolicyBasedMethod):
         self.Q.step()
 
         return step, total_reward
+
+    def train(self, n_episodes: int, **kwargs) -> None:
+        super().train(n_episodes, **kwargs)
+        return self.Q, self.pi

@@ -6,6 +6,7 @@ __all__ = [
 import numpy as np
 import numpy.typing as npt
 
+from utils import LearningRate
 from value import ActionValue
 
 
@@ -18,7 +19,7 @@ class DerivedPolicy:
         self.Q = Q
         self.n_actions = Q.n_actions
 
-    def epsilon_probabilities(self, state, epsilon: float = .1) -> npt.NDArray[float]:
+    def epsilon_probabilities(self, state, epsilon: float) -> npt.NDArray[float]:
         """
         Return the epsilon probability distribution for the given state.
         """
@@ -27,7 +28,7 @@ class DerivedPolicy:
         probs[best_action] += 1. - epsilon
         return probs
 
-    def sample_epsilon_greedy(self, state, epsilon: float = .1) -> int:
+    def sample_epsilon_greedy(self, state, epsilon: float) -> int:
         """
         Sample epsilon-greedily an action in the given state.
         """

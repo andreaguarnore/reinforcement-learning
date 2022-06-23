@@ -11,9 +11,13 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.kernel_approximation import RBFSampler
 
 
+class DiscreteStateSpace:
+    pass
+
+
 class FeaturizedEnv(ObservationWrapper):
     """
-    Environment wrapper which transforms states into features.
+    Environment wrapper which transforms states into scaled features.
     """
 
     def __init__(

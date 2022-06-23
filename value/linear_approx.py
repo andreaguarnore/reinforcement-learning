@@ -6,6 +6,7 @@ __all__ = [
 import numpy as np
 import numpy.typing as npt
 
+from utils import LearningRate, ConstantLR
 from value import ActionValue
 
 
@@ -18,14 +19,11 @@ class LinearApproxActionValue(ActionValue):
         self,
         n_features: int,
         n_actions: int,
-        lr: float = .1,
-        decay: float = 1e-2,
+        lr: LearningRate = None,
     ) -> None:
+        self.n_features = n_features
         self.n_actions = n_actions
-        self.lr0 = lr
-        self.lr = lr
-        self.decay = decay
-        self.episode = 0
+        self.lr = ConstantLR(1e-2) if lr is None else lr
         self.w = np.zeros((n_features, n_actions))
 
     def of(self, features: npt.NDArray[float], action: int) -> float:
@@ -38,16 +36,9 @@ class LinearApproxActionValue(ActionValue):
         self,
         features: npt.NDArray[float],
         action: int,
-        update: float
+        delta: float
     ) -> None:
-        self.w[:, action] += self.lr * update * features
-
-    def step(self) -> None:
-        """
-        Update learning rate when an episode has terminated.
-        """
-        self.lr = self.lr0 / (1 + self.decay * self.episode)
-        self.episode += 1
+        self.w[:, action] += delta * features
 
     def to_array(self, meshgrid: npt.NDArray[float]) -> npt.NDArray[float]:
         return np.apply_along_axis(

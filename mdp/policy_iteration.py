@@ -9,13 +9,13 @@ from gym import Env
 import numpy as np
 
 from mdp import (
-    MDPSolver,
+    DPMethod,
     TabularStateValue, TabularPolicy,
     one_step_lookahead,
 )
 
 
-class PolicyIteration(MDPSolver):
+class PolicyIteration(DPMethod):
     """
     Policy evaluation: Bellman expectation backup.
     Policy improvement: Greedy policy improvement.

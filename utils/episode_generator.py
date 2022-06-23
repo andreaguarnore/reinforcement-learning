@@ -13,7 +13,7 @@ def generate_episode(
     n_steps: int | None,
 ) -> list[tuple[int, int, float]]:
     """
-    Generate an episode following the given policy.
+    Generate an episode using the given sample function of a policy.
     """
     episode = []
     state = env.reset()

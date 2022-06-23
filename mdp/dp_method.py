@@ -1,5 +1,5 @@
 __all__ = [
-    'MDPSolver',
+    'DPMethod',
 ]
 
 
@@ -8,7 +8,10 @@ from gym import Env
 from mdp import TabularStateValue, TabularPolicy
 
 
-class MDPSolver:
+class DPMethod:
+    """
+    Generic dynamic programming method class
+    """
 
     def __init__(
         self,

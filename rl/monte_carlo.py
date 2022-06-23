@@ -36,7 +36,7 @@ class OnPolicyMC(ValueBasedMethod):
         episode = generate_episode(
             self.env,
             self.pi.sample_epsilon_greedy,
-            {'epsilon': self.epsilon},
+            {'epsilon': self.epsilon.lr},
             n_steps
         )
         if self.save_episodes:
@@ -45,8 +45,10 @@ class OnPolicyMC(ValueBasedMethod):
         # Make a list of all visited state-action pairs for which we will compute an update
         if self.first_visit:
             visited = []
+            first_visits = []
             for step, (state, action, reward) in enumerate(episode):
-                if (state, action) not in visited:
+                if (state, action) not in first_visits:
+                    first_visits.append((state, action))
                     visited.append((step, (state, action, reward)))
         else:
             visited = enumerate(episode)
@@ -61,8 +63,8 @@ class OnPolicyMC(ValueBasedMethod):
             self.returns[state, action] += G
             self.counts[state, action] += 1
             exp_G = self.returns[state, action] / self.counts[state, action]
-            update = self.alpha * (exp_G - self.Q.of(state, action))
-            self.Q.update(state, action, update)
+            delta = self.alpha.lr * (exp_G - self.Q.of(state, action))  # use alpha != 1 only for non-stationary problems!
+            self.Q.update(state, action, delta)
 
         return len(episode), sum([r for _, _, r in episode])
 
@@ -129,7 +131,7 @@ class OffPolicyMC(ValueBasedMethod):
         episode = generate_episode(
             self.env,
             self.pi.sample_epsilon_greedy,
-            {'epsilon': self.epsilon},
+            {'epsilon': self.epsilon.lr},
             n_steps,
         )
         if self.save_episodes:
@@ -145,8 +147,8 @@ class OffPolicyMC(ValueBasedMethod):
             self.C[state, action] += W
 
             # Update value towards corrected return
-            update = (W / self.C[state, action]) * self.alpha * (G - self.Q.of(state, action))
-            self.Q.update(state, action, update)
+            delta = (W / self.C[state, action]) * self.alpha.lr * (G - self.Q.of(state, action))
+            self.Q.update(state, action, delta)
 
             # Stop looping if policies do not match
             greedy_action = self.pi.sample_greedy(state)
@@ -154,6 +156,6 @@ class OffPolicyMC(ValueBasedMethod):
                 break
 
             # Update weights
-            W = W / self.pi.epsilon_probabilities(state, self.epsilon)[action]
+            W = W / self.pi.epsilon_probabilities(state, self.epsilon.lr)[action]
 
         return len(episode), sum([r for _, _, r in episode])

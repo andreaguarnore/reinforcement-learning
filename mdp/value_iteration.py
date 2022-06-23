@@ -3,19 +3,17 @@ __all__ = [
 ]
 
 
-from copy import deepcopy
-
 from gym import Env
 import numpy as np
 
 from mdp import (
-    MDPSolver,
+    DPMethod,
     TabularStateValue, TabularPolicy,
     one_step_lookahead,
 )
 
 
-class ValueIteration(MDPSolver):
+class ValueIteration(DPMethod):
     """
     Policy evaluation and policy improvement: Bellman optimality backup.
     """
@@ -29,7 +27,7 @@ class ValueIteration(MDPSolver):
         **kwargs,
     ) -> None:
         super().__init__(n_states, n_actions, P, **kwargs)
-        self.V = deepcopy(starting_value)
+        self.V = starting_value
 
     def iteration(self) -> bool:
         assert self.converged is False, 'Convergence already reached'

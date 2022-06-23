@@ -4,21 +4,24 @@ __all__ = [
 ]
 
 
-from copy import deepcopy
 import os
 
 from gym import Env
 import numpy as np
 
 from policy import DerivedPolicy, ParameterizedPolicy
-from utils import Logger
-from value import ActionValue
+from utils import Logger, LearningRate, LinearLR
+from value import ActionValue, LinearApproxActionValue
 
 
-class Method:
+class RLMethod:
     """
-    Base reinforcement learning method class. Implementations of RL methods simply need to override
-    `train_episode`, which is called in loop in the `train` method.
+    Base reinforcement learning method class.
+
+    Implementations of RL methods simply need to override `train_episode`, which is called in loop
+    in the `train` method, and add method-specific learning rates to the list `lrs`.
+
+    Beware that starting values/policies passed in are not copied.
     """
 
     def __init__(
@@ -27,8 +30,7 @@ class Method:
         verbose: bool = False,
         save_episodes: bool = False,
         gamma: float = .9,
-        alpha: float = .1,
-        alpha_decay: float = 1e-3,
+        alpha: LinearLR = None,
     ) -> None:
         self.env = env
         self.verbose = verbose
@@ -40,9 +42,8 @@ class Method:
                 os.makedirs('logs')
             self.file_logger = Logger(f'{hash(self)}_episodes', f'logs/{type(self).__name__}.log')
         self.gamma = gamma
-        self.lrs = {
-            'alpha': (alpha, alpha_decay, 'robbins_monro'),
-        }
+        self.alpha = LinearLR() if alpha is None else alpha
+        self.lrs = [self.alpha]
         self.total_episodes = 0
 
     def train_episode(self, n_steps: int | None = None) -> tuple[int, float]:
@@ -56,53 +57,50 @@ class Method:
         """
         Train for `n_episodes` episodes.
         """
+        assert n_episodes > 0, 'The number of episodes must be positive'
+        assert n_steps is None or n_steps > 0, 'The number of steps must be positive'
+
+        # For each episode
         for _ in range(n_episodes):
-            self.update_lrs(self.total_episodes)
+
+            # Train for an episode
             episode_steps, total_reward = self.train_episode(n_steps)
-            self.total_episodes += 1
+
+            # Log training data
             if self.verbose:
                 self.logger.log_training_episode(self.total_episodes, episode_steps, total_reward)
             if self.save_episodes:
                 self.file_logger.new_episode()
 
-    def update_lrs(self, episode: int) -> None:
-        """
-        Update learning rates each episode.
-        """
-        for lr, (lr0, decay, mode) in self.lrs.items():
-            match mode:
-                case 'constant':
-                    self.__dict__[lr] = lr0
-                case 'exponential':
-                    self.__dict__[lr] = lr0 * np.exp(-decay * episode)
-                case 'robbins_monro':
-                    self.__dict__[lr] = lr0 / (1. + (decay * episode))
+            # Prepare for the next episode
+            self.total_episodes += 1
+            for lr in self.lrs:
+                lr.update(self.total_episodes)
 
 
-class ValueBasedMethod(Method):
+class ValueBasedMethod(RLMethod):
 
     def __init__(
         self,
         env: Env,
         starting_value: ActionValue,
-        epsilon: float = .3,
-        epsilon_decay: float = .1,
-        epsilon_mode: str = 'exponential',
+        epsilon: LearningRate = None,
         **kwargs,
     ) -> None:
         super().__init__(env, **kwargs)
-        self.Q = deepcopy(starting_value)
+        self.Q = starting_value
+        if isinstance(self.Q, LinearApproxActionValue):
+            self.lrs.append(self.Q.lr)
         self.pi = DerivedPolicy(self.Q)
-        self.lrs.update({
-            'epsilon': (epsilon, epsilon_decay, epsilon_mode),
-        })
+        self.epsilon = LinearLR() if epsilon is None else epsilon
+        self.lrs.append(epsilon)
 
     def train(self, n_episodes: int, **kwargs) -> None:
         super().train(n_episodes, **kwargs)
         return self.Q, self.pi
 
 
-class PolicyBasedMethod(Method):
+class PolicyBasedMethod(RLMethod):
 
     def __init__(
         self,
@@ -111,7 +109,8 @@ class PolicyBasedMethod(Method):
         **kwargs,
     ) -> None:
         super().__init__(env, **kwargs)
-        self.pi = deepcopy(starting_policy)
+        self.pi = starting_policy
+        self.lrs.append(self.pi.lr)
 
     def train(self, n_episodes: int, **kwargs) -> None:
         super().train(n_episodes, **kwargs)
