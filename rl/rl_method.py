@@ -32,6 +32,7 @@ class RLMethod:
         gamma: float = .9,
         alpha: LinearLR = None,
     ) -> None:
+        assert 0. < gamma < 1., 'The discount factor gamma must be in [0, 1]'
         self.env = env
         self.verbose = verbose
         self.save_episodes = save_episodes

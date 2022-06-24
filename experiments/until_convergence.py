@@ -66,7 +66,7 @@ for i, method_cls in enumerate(methods, start=1):
 
     # Every `train_episodes` compute the mean squared error between the optimal value computed with
     # a dynamic programming method and the current value of the reinforcement learning method
-    file = open(f'examples/mse_{method_name}.log', 'w')
+    file = open(f'experiments/mse_{method_name}.log', 'w')
     method_errors = []  # this method's mse
     mse = float('inf')
     episode = 0
@@ -86,6 +86,6 @@ for method, mse in zip(methods, errors):
 
 plt.legend()
 plt.xscale('log')
-plt.yscale('log')
+# plt.yscale('log')
 plt.tight_layout()
 plt.show()

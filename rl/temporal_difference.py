@@ -26,6 +26,7 @@ class TDMethod(ValueBasedMethod):
         lambda_: float = .8,
         **kwargs,
     ):
+        assert 0. <= lambda_ <= 1, 'The trace decay rate lambda must be in [0, 1]'
         super().__init__(env, starting_value, **kwargs)
         self.is_approx = isinstance(self.Q, LinearApproxActionValue)
         self.greedy_next_action = greedy_next_action
@@ -37,10 +38,11 @@ class TDMethod(ValueBasedMethod):
         state = self.env.reset()
 
         # Initialize eligibility traces
-        eligibility = np.zeros((
-            self.Q.n_features if self.is_approx else self.Q.n_states,
-            self.Q.n_actions,
-        ))
+        if self.lambda_ != 0.:
+            eligibility = np.zeros((
+                self.Q.n_features if self.is_approx else self.Q.n_states,
+                self.Q.n_actions,
+            ))
 
         # For each step of the episode
         step = 0
@@ -61,23 +63,20 @@ class TDMethod(ValueBasedMethod):
             if self.greedy_next_action: next_action = self.pi.sample_greedy(next_state)
             else: next_action = self.pi.sample_epsilon_greedy(next_state, self.epsilon.lr)
 
-            # TD(lambda)...
+            # TD update
             target = reward + self.gamma * self.Q.of(next_state, next_action)
             error = target - self.Q.of(state, action)
-
-            # ... with function approximation
-            if self.is_approx:
-                eligibility = self.gamma * self.lambda_ * eligibility + state
-                delta = self.alpha.lr * error * eligibility
-                self.Q.update(state, action, delta)
-
-            # ... with a discrete state space
-            else:
-                eligibility[state, action] += 1
-                for s, a in product(range(self.Q.n_states), range(self.Q.n_actions)):
-                    delta = self.alpha.lr * error * eligibility[s, a]
-                    self.Q.update(s, a, delta)
-                    eligibility[s, a] *= self.gamma * self.lambda_
+            match (self.lambda_, self.is_approx):
+                case (0., _):  # TD(0)
+                    self.Q.update(state, action, self.alpha.lr * error)
+                case (_, True):  # TD(lambda) with value function approximation
+                    eligibility = self.gamma * self.lambda_ * eligibility + state
+                    self.Q.update(state, action, self.alpha.lr * error * eligibility)
+                case (_, False):  # TD(lambda) with tabular value function
+                    eligibility[state, action] += 1
+                    for s, a in product(range(self.Q.n_states), range(self.Q.n_actions)):
+                        self.Q.update(s, a, self.alpha.lr * error * eligibility[s, a])
+                        eligibility[s, a] *= self.gamma * self.lambda_
 
             # Stop if the environment has terminated
             if done:

@@ -27,6 +27,7 @@ class ConstantLR(LearningRate):
     """
 
     def __init__(self, lr: float) -> None:
+        assert 0. < lr <= 1., 'The learning rate must be in (0, 1]'
         self.lr = lr
 
     def update(self, episode: int) -> None:
@@ -39,6 +40,7 @@ class LinearLR(LearningRate):
     """
 
     def __init__(self, lr0: float = .1, decay: float = 1e-3) -> None:
+        assert 0. < lr0 <= 1., 'The initial learning rate must be in (0, 1]'
         assert decay > 0., 'The decay must be a positive value'
         self.lr0 = lr0
         self.decay = decay
@@ -54,6 +56,7 @@ class ExpLR(LearningRate):
     """
 
     def __init__(self, lr0: float = .8, decay: float = 1e-3) -> None:
+        assert 0. < lr0 <= 1., 'The initial learning rate must be in (0, 1]'
         assert decay > 0., 'The decay must be a positive value'
         self.lr0 = lr0
         self.decay = decay

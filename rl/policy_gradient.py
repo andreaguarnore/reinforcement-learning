@@ -91,16 +91,16 @@ class ActorCritic(PolicyBasedMethod):
             next_action = self.pi.sample(next_state)
 
             # Update policy parameters
-            delta = self.alpha.lr * self.Q.of(state, action)
-            self.pi.update(state, action, delta)
+            update = self.alpha.lr * self.Q.of(state, action)
+            self.pi.update(state, action, update)
 
             # Compute TD error
             target = reward + self.gamma * self.Q.of(next_state, next_action)
             error = target - self.Q.of(state, action)
 
             # Update value parameters
-            delta = self.value_alpha.lr * error
-            self.Q.update(state, action, delta)
+            update = self.value_alpha.lr * error
+            self.Q.update(state, action, update)
 
             # Stop if the environment has terminated
             if done:

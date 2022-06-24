@@ -63,8 +63,8 @@ class OnPolicyMC(ValueBasedMethod):
             self.returns[state, action] += G
             self.counts[state, action] += 1
             exp_G = self.returns[state, action] / self.counts[state, action]
-            delta = self.alpha.lr * (exp_G - self.Q.of(state, action))  # use alpha != 1 only for non-stationary problems!
-            self.Q.update(state, action, delta)
+            update = self.alpha.lr * (exp_G - self.Q.of(state, action))  # use alpha != 1 only for non-stationary problems!
+            self.Q.update(state, action, update)
 
         return len(episode), sum([r for _, _, r in episode])
 
@@ -147,8 +147,8 @@ class OffPolicyMC(ValueBasedMethod):
             self.C[state, action] += W
 
             # Update value towards corrected return
-            delta = (W / self.C[state, action]) * self.alpha.lr * (G - self.Q.of(state, action))
-            self.Q.update(state, action, delta)
+            update = (W / self.C[state, action]) * self.alpha.lr * (G - self.Q.of(state, action))
+            self.Q.update(state, action, update)
 
             # Stop looping if policies do not match
             greedy_action = self.pi.sample_greedy(state)
