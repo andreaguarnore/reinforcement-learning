@@ -65,7 +65,7 @@ class DPAgent(Agent):
     def assert_not_converged(self) -> None:
         assert not self.converged, 'Convergence already reached'
 
-    def one_step_lookahead(self, state) -> np.ndarray:
+    def one_step_lookahead(self, state: int) -> np.ndarray:
         """
         Compute all action values in a given state.
         """
@@ -111,33 +111,45 @@ class RLAgent(Agent):
         self.lrs = [self.alpha]
         self.total_episodes = 0
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def episode(
+        self,
+        n_steps: int | None = None,
+        verbose: bool = False,
+    ) -> tuple[int, float]:
         """
-        Train for one episode. Returns the length of the episode and the total
-        reward obtained during the episode.
+        Train for one episode. Returns the total number of steps and the
+        cumulative reward obtained in the episode.
         """
+        assert n_steps is None or n_steps > 0, 'The number of steps must be positive'
+
+        if verbose:
+            print(f'Episode: {self.total_episodes + 1}')
+
+        # Train for one episode
+        episode_steps, total_reward = self._episode(n_steps)
+        self.total_episodes += 1
+
+        # Update learning rates
+        for lr in self.lrs:
+            lr.next()
+
+        if verbose:
+            print(f'    Steps:  {episode_steps}')
+            print(f'    Reward: {total_reward}')
+
+        return episode_steps, total_reward
 
     def train(
         self,
         n_episodes: int,
-        n_steps: int | None = None
+        **kwargs,
     ) -> ImplicitPolicy | ParameterizedPolicy:
+        """
+        Train the agent for `n_episodes` episodes. Returns the learned policy.
+        """
         assert n_episodes > 0, 'The number of episodes must be positive'
-        assert n_steps is None or n_steps > 0, 'The number of steps must be positive'
-
-        # For each episode
         for _ in range(n_episodes):
-
-            # Train for an episode
-            episode_steps, total_reward = self.episode(n_steps)
-            self.total_episodes += 1
-
-            # Update learning rates
-            for lr in self.lrs:
-                lr.next()
-
-            # print(self.total_episodes, episode_steps, total_reward)
-
+            self.episode(**kwargs)
         return self.pi
 
     @property
@@ -154,7 +166,7 @@ class MonteCarloAgent(RLAgent):
         self,
         sample_function: callable,
         sample_function_args: dict,
-        n_steps: int | None
+        n_steps: int | None,
     ):
         """
         Generate an episode using the given sample function of the current

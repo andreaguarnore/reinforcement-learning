@@ -10,7 +10,10 @@ import numpy as np
 from core.agent import MonteCarloAgent, ValueBasedAgent
 
 
-class OnPolicyMC(ValueBasedAgent, MonteCarloAgent):
+class OnPolicyMCAgent(ValueBasedAgent, MonteCarloAgent):
+    """
+    Generic on-policy Monte Carlo agent class.
+    """
 
     def __init__(self, env: Env, **kwargs) -> None:
         super().__init__(env, **kwargs)
@@ -18,7 +21,7 @@ class OnPolicyMC(ValueBasedAgent, MonteCarloAgent):
         self.n_actions = env.action_space.n
         self.counts = np.zeros((self.n_states, self.n_actions), dtype=int)
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Generate an episode
         sa_pairs, rewards = self.generate_episode(
@@ -45,7 +48,11 @@ class OnPolicyMC(ValueBasedAgent, MonteCarloAgent):
         return len(rewards), sum(rewards)
 
 
-class FirstVisitMC(OnPolicyMC):
+class FirstVisitMC(OnPolicyMCAgent):
+    """
+    First-visit Monte Carlo. Compute return for each first-visit to a
+    state-action pair.
+    """
 
     def visits_to_update(self, sa_pairs: list) -> list:
         first_visits = []
@@ -55,7 +62,11 @@ class FirstVisitMC(OnPolicyMC):
         return first_visits
 
 
-class EveryVisitMC(OnPolicyMC):
+class EveryVisitMC(OnPolicyMCAgent):
+    """
+    Every-visit Monte Carlo. Compute return for each visit to a state-action
+    pair.
+    """
 
     def visits_to_update(self, sa_pairs: list) -> list:
         return enumerate(sa_pairs)

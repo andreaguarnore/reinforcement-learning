@@ -11,6 +11,9 @@ from sklearn.kernel_approximation import RBFSampler
 
 
 class FeaturizedStates(ObservationWrapper):
+    """
+    Generic wrapper for featurized states as observation.
+    """
 
     def __init__(
         self,
@@ -33,6 +36,9 @@ class FeaturizedStates(ObservationWrapper):
 
 
 class RadialBasisFunction(FeaturizedStates):
+    """
+    Radial basis function as features of the state.
+    """
 
     def __init__(
         self,

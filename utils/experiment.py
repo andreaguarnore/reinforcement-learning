@@ -4,6 +4,8 @@ __all__ = [
 ]
 
 
+from copy import deepcopy
+
 from gym import Env
 import numpy as np
 
@@ -83,6 +85,7 @@ class MeanSquaredError:
         # For each agent
         for name, agent in self.agent_generator():
 
+            base_agent = agent
             if verbose:
                 print(name)
 
@@ -90,6 +93,7 @@ class MeanSquaredError:
             error = np.zeros((len(episodes_to_log), n_runs))
             for run in range(n_runs):
 
+                agent = deepcopy(base_agent)
                 if verbose:
                     print(f' run {run + 1}/{n_runs}')
 

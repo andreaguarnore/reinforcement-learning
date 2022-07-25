@@ -17,7 +17,7 @@ class Reinforce(PolicyBasedAgent, MonteCarloAgent):
     Monte Carlo policy gradient.
     """
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Sample an episode
         sa_pairs, rewards = self.generate_episode(
@@ -55,7 +55,7 @@ class ReinforceAdvantage(PolicyBasedAgent, MonteCarloAgent):
         self.V = starting_value
         self.value_alpha = LearningRate('linear') if value_alpha is None else value_alpha
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Sample an episode
         sa_pairs, rewards = self.generate_episode(
@@ -98,7 +98,7 @@ class ActorCritic(PolicyBasedAgent):
         self.V = starting_value
         self.value_alpha = LearningRate('linear') if value_alpha is None else value_alpha
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Sample the starting state
         state = self.env.reset()
@@ -108,12 +108,13 @@ class ActorCritic(PolicyBasedAgent):
         total_reward = 0.
         while n_steps is None or step < n_steps:
 
-            # Sample
+            # Sample an action from the current policy
             action = self.pi.sample(state)
 
             # Sample the next state and
             # the reward associated with the last transition
             next_state, reward, terminated, truncated, _ = self.env.step(action)
+            step += 1
             total_reward += reward
 
             # Compute TD error
@@ -130,7 +131,6 @@ class ActorCritic(PolicyBasedAgent):
 
             # Prepare for the next step
             state = next_state
-            step += 1
 
         return step, total_reward
 

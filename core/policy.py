@@ -84,7 +84,7 @@ class ImplicitPolicy:
 
 class ParameterizedPolicy:
     """
-    Policy modeled with a parameterized function.
+    Generic class for a policy modeled with a parameterized function.
     """
 
     def __init__(self, n_features: int, lr: LearningRate = None) -> None:
@@ -109,6 +109,9 @@ class ParameterizedPolicy:
 
 
 class SoftmaxPolicy(ParameterizedPolicy):
+    """
+    Softmax in action preferences.
+    """
 
     def __init__(self, n_features: int, n_actions: int, **kwargs) -> None:
         super().__init__(n_features, **kwargs)
@@ -126,7 +129,7 @@ class SoftmaxPolicy(ParameterizedPolicy):
 
     def update(self, features: np.ndarray, action: int, update: float) -> None:
         """
-        Policy gradient: phi(s, a) - E[phi(s,·)]
+        Policy gradient: φ(s, a) - E[φ(s,·)]
         """
         phi_sa = np.zeros_like(self.theta)
         phi_sa[:, action] = features
@@ -137,6 +140,9 @@ class SoftmaxPolicy(ParameterizedPolicy):
 
 
 class GaussianPolicy(ParameterizedPolicy):
+    """
+    Gaussian in action preferences.
+    """
 
     def __init__(self, n_features: int, **kwargs) -> None:
         super().__init__(n_features, **kwargs)
@@ -147,7 +153,6 @@ class GaussianPolicy(ParameterizedPolicy):
         return self.theta_mu.T @ features
 
     def std(self, features: np.ndarray):
-        print(np.exp(self.theta_sigma.T @ features))
         return np.exp(self.theta_sigma.T @ features)
 
     def sample(self, features: np.ndarray) -> float:
@@ -159,7 +164,11 @@ class GaussianPolicy(ParameterizedPolicy):
         action: float,
         update: float,
     ) -> None:
+        """
+        μ gradient: (a - μ(s)) / σ(s)² φ(s)
+        σ gradient: ((a - μ(s))² / σ(s)² - 1) φ(s)
+        """
         mu_gradient = (action - self.mean(features) * features) / self.std(features)
         self.theta_mu += self.lr.lr * update * mu_gradient
-        sigma_gradient = ((action - self.mean(features)) ** 2 / self.std(features) - 1) * features
+        sigma_gradient = ((action - self.mean(features)) ** 2 / self.std(features) ** 2 - 1) * features
         self.theta_sigma += self.lr.lr * update * sigma_gradient

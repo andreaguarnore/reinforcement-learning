@@ -7,7 +7,7 @@ from core.value import TabularActionValue
 from utils.experiment import CumulativeReward
 
 
-env = gym.make('CliffWalking-v0')
+env = gym.make('CliffWalking-v0', new_step_api=True)
 n_states = env.observation_space.n
 n_actions = env.action_space.n
 

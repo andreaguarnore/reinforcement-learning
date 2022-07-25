@@ -17,18 +17,18 @@ from core.value import ActionValue, LinearApproxActionValue
 
 class TDAgent(ValueBasedAgent):
     """
-    TD(0) agent.
+    Generic TD(0) agent class.
     """
 
     def td_update(
         self,
-        state: int,
+        state: int | np.ndarray,
         action: int,
         error: float,
     ) -> None:
         self.Q.update(state, action, self.alpha() * error)
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Sample the starting state
         state = self.env.reset()
@@ -44,6 +44,7 @@ class TDAgent(ValueBasedAgent):
             # Sample the next state and
             # the reward associated with the last transition
             next_state, reward, terminated, truncated, _ = self.env.step(action)
+            step += 1
             total_reward += reward
 
             # Sample the next action from the behavior policy
@@ -60,7 +61,6 @@ class TDAgent(ValueBasedAgent):
 
             # Prepare for the next step
             state = next_state
-            step += 1
 
         return step, total_reward
 
@@ -70,11 +70,14 @@ class Sarsa(TDAgent):
     On-policy TD(0).
     """
 
-    def next_action(self, next_state: int) -> int:
+    def next_action(self, next_state: int | np.ndarray) -> int:
         return self.pi.sample_epsilon_greedy(next_state, self.epsilon())
 
 
 class nStepSarsa(Sarsa):
+    """
+    n-step SARSA.
+    """
 
     def __init__(
         self,
@@ -88,7 +91,7 @@ class nStepSarsa(Sarsa):
         self.n = n
         self.n_gammas = np.array([self.gamma ** step for step in range(self.n)])
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
         # Sample the starting state
         state = self.env.reset()
@@ -105,6 +108,7 @@ class nStepSarsa(Sarsa):
             # Sample the next state and
             # the reward associated with the last transition
             next_state, reward, terminated, truncated, _ = self.env.step(action)
+            step += 1
             total_reward += reward
             last_n_rewards = np.pad(
                 array=last_n_rewards,
@@ -120,10 +124,10 @@ class nStepSarsa(Sarsa):
                 next_action = self.next_action(next_state)
 
                 # Compute the n-step return
-                Gn = np.sum(last_n_rewards * self.n_gammas)
+                nstepG = np.sum(last_n_rewards * self.n_gammas)
 
                 # Update value
-                target = Gn + self.gamma ** self.n * self.Q.of(next_state, next_action)
+                target = nstepG + self.gamma ** self.n * self.Q.of(next_state, next_action)
                 error = target - self.Q.of(state, action)
                 self.td_update(state, action, error)
 
@@ -136,7 +140,6 @@ class nStepSarsa(Sarsa):
 
             # Prepare for the next step
             state = next_state
-            step += 1
 
         return step, total_reward
 
@@ -158,19 +161,18 @@ class SarsaLambda(Sarsa):
         self.is_approximate = isinstance(self.Q, LinearApproxActionValue)
         self.td_update = self.approximate_td_update if self.is_approximate else self.finite_td_update
 
-    def episode(self, n_steps: int | None = None) -> tuple[int, float]:
+    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
+        # Initialize eligibility traces before each episode
         self.traces = np.zeros((
             self.Q.n_features if self.is_approximate else self.Q.n_states,
             self.Q.n_actions,
         ))
-        return super().episode(n_steps)
+        return super()._episode(n_steps)
 
-    def finite_td_update(
-        self,
-        state: int | np.ndarray,
-        action: int,
-        error: float,
-    ) -> None:
+    def finite_td_update(self, state: int, action: int, error: float) -> None:
+        """
+        TD update with eligibility traces for a finite action-value function.
+        """
         self.traces[state, action] += 1
         for s, a in product(range(self.Q.n_states), range(self.Q.n_actions)):
             self.Q.update(s, a, self.alpha() * error * self.traces[s, a])
@@ -178,10 +180,14 @@ class SarsaLambda(Sarsa):
 
     def approximate_td_update(
         self,
-        state: int | np.ndarray,
+        state: np.ndarray,
         action: int,
         error: float,
     ) -> None:
+        """
+        TD update with eligibility traces for an approximate action-value
+        function.
+        """
         self.traces = self.gamma * self.lambda_ * self.traces + state
         self.Q.update(state, action, self.alpha() * error * self.traces)
 
@@ -191,5 +197,5 @@ class QLearning(TDAgent):
     Off-policy TD(0).
     """
 
-    def next_action(self, next_state: int) -> int:
+    def next_action(self, next_state: int | np.ndarray) -> int:
         return self.pi.sample_greedy(next_state)

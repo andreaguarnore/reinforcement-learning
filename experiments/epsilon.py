@@ -23,7 +23,7 @@ def epsilon_experiment() -> tuple[str, Agent]:
         )
 
 
-env = gym.make('FrozenLake-v1', is_slippery=True)
+env = gym.make('FrozenLake-v1', is_slippery=True, new_step_api=True)
 n_states = env.observation_space.n
 n_actions = env.action_space.n
 gamma = 0.9

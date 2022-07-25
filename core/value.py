@@ -13,6 +13,9 @@ from core.learning_rate import LearningRate
 
 
 class TabularValue:
+    """
+    Generic tabular value function class.
+    """
 
     def __init__(self, n_states: int, n_actions: int = None) -> None:
         self.n_states = n_states
@@ -24,10 +27,13 @@ class TabularValue:
         """
 
 class LinearApproxValue:
+    """
+    Generic class for a linearly approximate value function.
+    """
 
     def __init__(
         self,
-        n_features: int,
+        n_features: np.ndarray,
         n_actions: int = None,
         lr: LearningRate = None
     ) -> None:
@@ -37,6 +43,9 @@ class LinearApproxValue:
 
 
 class StateValue:
+    """
+    Generic state-value function class.
+    """
 
     def of(self, state) -> float:
         """
@@ -50,8 +59,11 @@ class StateValue:
 
 
 class ActionValue:
+    """
+    Generic action-value function class.
+    """
 
-    def of(self, state, action) -> float:
+    def of(self, state, action: int) -> float:
         """
         Value of a given state-action pair.
         """
@@ -61,13 +73,16 @@ class ActionValue:
         All action values of a given state.
         """
 
-    def update(self, state, action, update: float) -> None:
+    def update(self, state, action: int, update: float) -> None:
         """
         Update value of a given state-action pair
         """
 
 
 class TabularStateValue(StateValue, TabularValue):
+    """
+    State-value function represented as a `(n_states,)` array.
+    """
 
     def __init__(self, n_states: int) -> None:
         super().__init__(n_states)
@@ -84,6 +99,9 @@ class TabularStateValue(StateValue, TabularValue):
 
 
 class TabularActionValue:
+    """
+    Action-value function represented as a `(n_states, n_actions)` array.
+    """
 
     def __init__(self, n_states: int, n_actions: int) -> None:
         self.n_states = n_states
@@ -104,6 +122,9 @@ class TabularActionValue:
 
 
 class LinearApproxStateValue(StateValue, LinearApproxValue):
+    """
+    Linearly approximated state-value function.
+    """
 
     def __init__(self, n_features: int, **kwargs) -> None:
         super().__init__(n_features, **kwargs)
@@ -117,6 +138,9 @@ class LinearApproxStateValue(StateValue, LinearApproxValue):
 
 
 class LinearApproxActionValue(ActionValue, LinearApproxValue):
+    """
+    Linearly approximated action-value function.
+    """
 
     def __init__(
         self,
