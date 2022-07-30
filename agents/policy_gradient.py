@@ -8,7 +8,7 @@ __all__ = [
 from gym import Env
 
 from core.agent import MonteCarloAgent, PolicyBasedAgent
-from core.learning_rate import LearningRate
+from core.step_size import StepSize
 from core.value import LinearApproxStateValue
 
 
@@ -47,13 +47,13 @@ class ReinforceAdvantage(PolicyBasedAgent, MonteCarloAgent):
     def __init__(
         self,
         env: Env,
-        starting_value: LinearApproxStateValue,
-        value_alpha: LearningRate = None,
+        initial_value: LinearApproxStateValue,
+        value_alpha: StepSize = None,
         **kwargs
     ) -> None:
         super().__init__(env, **kwargs)
-        self.V = starting_value
-        self.value_alpha = LearningRate('linear') if value_alpha is None else value_alpha
+        self.V = initial_value
+        self.value_alpha = StepSize('linear') if value_alpha is None else value_alpha
 
     def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 
@@ -90,13 +90,13 @@ class ActorCritic(PolicyBasedAgent):
     def __init__(
         self,
         env: Env,
-        starting_value: LinearApproxStateValue,
-        value_alpha: LearningRate = None,
+        initial_value: LinearApproxStateValue,
+        value_alpha: StepSize = None,
         **kwargs
     ) -> None:
         super().__init__(env, **kwargs)
-        self.V = starting_value
-        self.value_alpha = LearningRate('linear') if value_alpha is None else value_alpha
+        self.V = initial_value
+        self.value_alpha = StepSize('linear') if value_alpha is None else value_alpha
 
     def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
 

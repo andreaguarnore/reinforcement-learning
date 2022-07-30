@@ -9,7 +9,7 @@ __all__ = [
 
 import numpy as np
 
-from core.learning_rate import LearningRate
+from core.step_size import StepSize
 
 
 class TabularValue:
@@ -35,11 +35,14 @@ class LinearApproxValue:
         self,
         n_features: np.ndarray,
         n_actions: int = None,
-        lr: LearningRate = None
+        lr: StepSize = None
     ) -> None:
         self.n_features = n_features
         self.n_actions = n_actions
-        self.lr = LearningRate('constant', 1e-2) if lr is None else lr
+        self.lr = StepSize(
+            mode='constant',
+            initial_step_size=1e-2,
+        ) if lr is None else lr
 
 
 class StateValue:
@@ -134,7 +137,7 @@ class LinearApproxStateValue(StateValue, LinearApproxValue):
         return self.w @ features
 
     def update(self, features: np.ndarray, update: float) -> None:
-        self.w += self.lr.lr * update * features
+        self.w += self.lr() * update * features
 
 
 class LinearApproxActionValue(ActionValue, LinearApproxValue):
@@ -158,4 +161,4 @@ class LinearApproxActionValue(ActionValue, LinearApproxValue):
         return self.w.T @ features
 
     def update(self, features: np.ndarray, action: int, update: float) -> None:
-        self.w[:, action] += self.lr.lr * update * features
+        self.w[:, action] += self.lr() * update * features

@@ -25,32 +25,32 @@ env = RadialBasisFunction(
 )
 n_actions = env.action_space.n
 
-# Sarsa
-print('Sarsa:')
-policy = Sarsa(
-    env=env,
-    starting_value=LinearApproxActionValue(n_features, n_actions),
-).train(n_episodes, verbose=True)
+# # Sarsa
+# print('Sarsa:')
+# policy = Sarsa(
+#     env=env,
+#     initial_value=LinearApproxActionValue(n_features, n_actions),
+# ).train(n_episodes, verbose=True)
 
 # # Reinforce
 # print('Reinforce:')
 # policy = Reinforce(
 #     env=env,
-#     starting_policy=SoftmaxPolicy(n_features, n_actions),
+#     initial_policy=SoftmaxPolicy(n_features, n_actions),
 # ).train(n_episodes, verbose=True)
 
 # # Reinforce with baseline
 # print('Reinforce with baseline:')
 # policy = ReinforceAdvantage(
 #     env=env,
-#     starting_policy=SoftmaxPolicy(n_features, n_actions),
-#     starting_value=LinearApproxStateValue(n_features),
+#     initial_policy=SoftmaxPolicy(n_features, n_actions),
+#     initial_value=LinearApproxStateValue(n_features),
 # ).train(n_episodes, verbose=True)
 
-# # Actor-critic
-# print('Actor-critic:')
-# policy = ActorCritic(
-#     env=env,
-#     starting_policy=SoftmaxPolicy(n_features, n_actions),
-#     starting_value=LinearApproxStateValue(n_features),
-# ).train(n_episodes, verbose=True)
+# Actor-critic
+print('Actor-critic:')
+policy = ActorCritic(
+    env=env,
+    initial_policy=SoftmaxPolicy(n_features, n_actions),
+    initial_value=LinearApproxStateValue(n_features),
+).train(n_episodes, verbose=True)

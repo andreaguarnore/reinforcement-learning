@@ -31,7 +31,7 @@ n_actions = env.action_space.n
 # Policy iteration
 policy = PolicyIteration(
     env=env,
-    starting_policy=TabularPolicy(n_states, n_actions),
+    initial_policy=TabularPolicy(n_states, n_actions),
     gamma=0.9,
     theta=1e-3,
 ).solve()
@@ -41,7 +41,7 @@ print_policy(policy)
 # Value iteration
 policy = ValueIteration(
     env=env,
-    starting_value=TabularStateValue(n_states),
+    initial_value=TabularStateValue(n_states),
     gamma=0.9,
     theta=1e-3,
 ).solve()

@@ -35,7 +35,7 @@ n_actions = env.action_space.n
 print('First-visit Monte Carlo:')
 policy = FirstVisitMC(
     env=env,
-    starting_value=TabularActionValue(n_states, n_actions),
+    initial_value=TabularActionValue(n_states, n_actions),
 ).train(n_episodes)
 print_policy(policy)
 
@@ -43,7 +43,7 @@ print_policy(policy)
 print('Every-visit Monte Carlo:')
 policy = EveryVisitMC(
     env=env,
-    starting_value=TabularActionValue(n_states, n_actions),
+    initial_value=TabularActionValue(n_states, n_actions),
 ).train(n_episodes)
 print_policy(policy)
 
@@ -51,16 +51,7 @@ print_policy(policy)
 print('Sarsa:')
 policy = Sarsa(
     env=env,
-    starting_value=TabularActionValue(n_states, n_actions),
-).train(n_episodes)
-print_policy(policy)
-
-# n-step Sarsa
-print('n-step Sarsa:')
-policy = nStepSarsa(
-    env=env,
-    starting_value=TabularActionValue(n_states, n_actions),
-    n=4,
+    initial_value=TabularActionValue(n_states, n_actions),
 ).train(n_episodes)
 print_policy(policy)
 
@@ -68,6 +59,6 @@ print_policy(policy)
 print('Q-learning:')
 policy = QLearning(
     env=env,
-    starting_value=TabularActionValue(n_states, n_actions),
+    initial_value=TabularActionValue(n_states, n_actions),
 ).train(n_episodes)
 print_policy(policy)

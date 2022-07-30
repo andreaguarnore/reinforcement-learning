@@ -21,11 +21,11 @@ class PolicyIteration(DPAgent):
     def __init__(
         self,
         env: Env,
-        starting_policy: TabularPolicy,
+        initial_policy: TabularPolicy,
         **kwargs,
     ) -> None:
         super().__init__(env, **kwargs)
-        self.pi = starting_policy
+        self.pi = initial_policy
 
     def iteration(self) -> None:
         self.assert_not_converged()
@@ -36,7 +36,7 @@ class PolicyIteration(DPAgent):
         """
         Return value estimated according to the current policy.
         """
-        self.V = TabularStateValue(self.n_states,)
+        self.V = TabularStateValue(self.n_states)
 
         # Until convergence
         while True:
@@ -99,11 +99,11 @@ class ValueIteration(DPAgent):
     def __init__(
         self,
         env: Env,
-        starting_value: TabularStateValue,
+        initial_value: TabularStateValue,
         **kwargs,
     ) -> None:
         super().__init__(env, **kwargs)
-        self.V = starting_value
+        self.V = initial_value
 
     def iteration(self) -> None:
         self.assert_not_converged()

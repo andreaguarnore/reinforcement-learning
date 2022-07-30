@@ -9,7 +9,7 @@ __all__ = [
 
 import numpy as np
 
-from core.learning_rate import LearningRate
+from core.step_size import StepSize
 from core.value import ActionValue
 
 
@@ -18,8 +18,19 @@ class TabularPolicy:
     Stochastic policy represented as a `(n_states, n_actions)` array.
     """
 
-    def __init__(self, n_states: int, n_actions: int) -> None:
-        self.pi = np.ones((n_states, n_actions)) / n_actions
+    def __init__(
+        self,
+        n_states: int,
+        n_actions: int,
+        mode: str = 'uniform',
+    ) -> None:
+        assert mode in ['uniform', 'random'], 'Invalid policy initialization mode'
+        match mode:
+            case 'uniform':
+                self.pi = np.ones((n_states, n_actions)) / n_actions
+            case 'random':
+                self.pi = np.random.rand(n_states, n_actions)
+                self.pi /= np.sum(self.pi, axis=1)[:, None]
 
     def sample(self, state: int) -> int:
         """
@@ -87,9 +98,12 @@ class ParameterizedPolicy:
     Generic class for a policy modeled with a parameterized function.
     """
 
-    def __init__(self, n_features: int, lr: LearningRate = None) -> None:
+    def __init__(self, n_features: int, lr: StepSize = None) -> None:
         self.n_features = n_features
-        self.lr = LearningRate('constant', 1e-2) if lr is None else lr
+        self.lr = StepSize(
+            mode='constant',
+            initial_step_size=1e-2,
+        ) if lr is None else lr
 
     def sample(self, features: np.ndarray) -> int | float:
         """
@@ -136,7 +150,7 @@ class SoftmaxPolicy(ParameterizedPolicy):
         probabilities = self.probabilities(features)
         E_phi = np.tile(features, (self.n_actions, 1)).T * probabilities
         gradient = phi_sa - E_phi
-        self.theta += self.lr.lr * update * gradient
+        self.theta += self.lr() * update * gradient
 
 
 class GaussianPolicy(ParameterizedPolicy):
@@ -169,6 +183,6 @@ class GaussianPolicy(ParameterizedPolicy):
         σ gradient: ((a - μ(s))² / σ(s)² - 1) φ(s)
         """
         mu_gradient = (action - self.mean(features) * features) / self.std(features)
-        self.theta_mu += self.lr.lr * update * mu_gradient
+        self.theta_mu += self.lr() * update * mu_gradient
         sigma_gradient = ((action - self.mean(features)) ** 2 / self.std(features) ** 2 - 1) * features
-        self.theta_sigma += self.lr.lr * update * sigma_gradient
+        self.theta_sigma += self.lr() * update * sigma_gradient

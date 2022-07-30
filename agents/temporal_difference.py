@@ -1,6 +1,5 @@
 __all__ = [
     'Sarsa',
-    'nStepSarsa',
     'SarsaLambda',
     'QLearning',
 ]
@@ -74,76 +73,6 @@ class Sarsa(TDAgent):
         return self.pi.sample_epsilon_greedy(next_state, self.epsilon())
 
 
-class nStepSarsa(Sarsa):
-    """
-    n-step SARSA.
-    """
-
-    def __init__(
-        self,
-        env: Env,
-        starting_value: ActionValue,
-        n: int,
-        **kwargs,
-    ):
-        assert n > 1, 'The n value for the n-step must be greater than 1'
-        super().__init__(env, starting_value, **kwargs)
-        self.n = n
-        self.n_gammas = np.array([self.gamma ** step for step in range(self.n)])
-
-    def _episode(self, n_steps: int | None = None) -> tuple[int, float]:
-
-        # Sample the starting state
-        state = self.env.reset()
-
-        # For each step of the episode
-        step = 0
-        total_reward = 0.
-        last_n_rewards = np.zeros(0)
-        while n_steps is None or step < n_steps:
-
-            # Sample an action epsilon-greedily
-            action = self.pi.sample_epsilon_greedy(state, self.epsilon())
-
-            # Sample the next state and
-            # the reward associated with the last transition
-            next_state, reward, terminated, truncated, _ = self.env.step(action)
-            step += 1
-            total_reward += reward
-            last_n_rewards = np.pad(
-                array=last_n_rewards,
-                pad_width=(0, 1),
-                mode='constant',
-                constant_values=reward,
-            )
-
-            # If we have sampled enough rewards
-            if last_n_rewards.size == self.n:
-
-                # Sample the next action from the behavior policy
-                next_action = self.next_action(next_state)
-
-                # Compute the n-step return
-                nstepG = np.sum(last_n_rewards * self.n_gammas)
-
-                # Update value
-                target = nstepG + self.gamma ** self.n * self.Q.of(next_state, next_action)
-                error = target - self.Q.of(state, action)
-                self.td_update(state, action, error)
-
-                # Remove oldest reward
-                last_n_rewards = last_n_rewards[1:]
-
-            # Stop if the environment has terminated
-            if terminated or truncated:
-                break
-
-            # Prepare for the next step
-            state = next_state
-
-        return step, total_reward
-
-
 class SarsaLambda(Sarsa):
     """
     Finite and approximate Sarsa(λ).
@@ -152,11 +81,11 @@ class SarsaLambda(Sarsa):
     def __init__(
         self,
         env: Env,
-        starting_value: ActionValue,
+        initial_value: ActionValue,
         lambda_: float = 0.9,
         **kwargs,
     ):
-        super().__init__(env, starting_value, **kwargs)
+        super().__init__(env, initial_value, **kwargs)
         self.lambda_ = lambda_
         self.is_approximate = isinstance(self.Q, LinearApproxActionValue)
         self.td_update = self.approximate_td_update if self.is_approximate else self.finite_td_update

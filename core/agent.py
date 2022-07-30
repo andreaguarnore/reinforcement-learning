@@ -10,7 +10,7 @@ __all__ = [
 from gym import Env
 import numpy as np
 
-from core.learning_rate import LearningRate
+from core.step_size import StepSize
 from core.policy import TabularPolicy, ImplicitPolicy, ParameterizedPolicy
 from core.value import TabularStateValue, ActionValue, LinearApproxActionValue
 
@@ -99,15 +99,11 @@ class RLAgent(Agent):
     def __init__(
         self,
         env: Env,
-        alpha: LearningRate = None,
+        alpha: StepSize = None,
         **kwargs,
     ) -> None:
         super().__init__(env, **kwargs)
-        self.alpha = LearningRate(
-            mode='linear',
-            lr0=0.1,
-            decay=1e-3,
-        ) if alpha is None else alpha
+        self.alpha = StepSize(mode='linear') if alpha is None else alpha
         self.lrs = [self.alpha]
         self.total_episodes = 0
 
@@ -196,18 +192,18 @@ class ValueBasedAgent(RLAgent):
     def __init__(
         self,
         env: Env,
-        starting_value: ActionValue,
-        epsilon: LearningRate = None,
+        initial_value: ActionValue,
+        epsilon: StepSize = None,
         **kwargs,
     ) -> None:
         super().__init__(env, **kwargs)
-        self.Q = starting_value
+        self.Q = initial_value
         if isinstance(self.Q, LinearApproxActionValue):
             self.lrs.append(self.Q.lr)
         self.pi = ImplicitPolicy(self.Q)
-        self.epsilon = LearningRate(
+        self.epsilon = StepSize(
             mode='linear',
-            lr0=0.8,
+            initial_step_size=0.8,
             decay=1e-3,
         ) if epsilon is None else epsilon
         self.lrs.append(self.epsilon)
@@ -225,9 +221,9 @@ class PolicyBasedAgent(RLAgent):
     def __init__(
         self,
         env: Env,
-        starting_policy: ParameterizedPolicy,
+        initial_policy: ParameterizedPolicy,
         **kwargs
     ) -> None:
         super().__init__(env, **kwargs)
-        self.pi = starting_policy
+        self.pi = initial_policy
         self.lrs.append(self.pi.lr)
