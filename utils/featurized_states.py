@@ -5,9 +5,6 @@ __all__ = [
 
 from gym import Env, ObservationWrapper
 import numpy as np
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.kernel_approximation import RBFSampler
 
 
 class FeaturizedStates(ObservationWrapper):
@@ -15,24 +12,12 @@ class FeaturizedStates(ObservationWrapper):
     Generic wrapper for featurized states as observation.
     """
 
-    def __init__(
-        self,
-        env: Env,
-        standardize: bool = True,
-        n_samples: int = 10_000,
-        **kwargs,
-    ) -> None:
+    def __init__(self, env: Env, **kwargs) -> None:
         super().__init__(env, **kwargs)
         self.env = env
-        self.pipeline = Pipeline([
-            ('scaler', StandardScaler()),
-            ('featurizer', self.featurizer),
-        ]) if standardize else self.featurizer
-        samples = np.array([self.env.observation_space.sample() for _ in range(n_samples)])
-        self.pipeline.fit(samples)
 
     def observation(self, obs: float | np.ndarray) -> np.ndarray:
-        return self.pipeline.transform([obs]).squeeze()
+        return self.transform(obs)
 
 
 class RadialBasisFunction(FeaturizedStates):
@@ -43,9 +28,19 @@ class RadialBasisFunction(FeaturizedStates):
     def __init__(
         self,
         env: Env,
+        limits: list[tuple[float, float]],
         gamma: float = 1.0,
-        n_features: int = 100,
+        n_centers: int = 100,
         **kwargs,
     ) -> None:
-        self.featurizer = RBFSampler(gamma=gamma, n_components=n_features)
         super().__init__(env, **kwargs)
+        assert gamma > 0.0, 'The RBF parameter gamma must be greater than zero'
+        self.gamma = gamma
+        self.centers = np.random.rand(n_centers, len(limits))
+        for d, (min, max) in enumerate(limits):
+            assert min < max, 'Invalid limits'
+            width = max - min
+            self.centers[:, d] = self.centers[:, d] * width + min
+
+    def transform(self, obs: float | np.ndarray) -> np.ndarray:
+        return np.exp(-(self.gamma * np.linalg.norm(obs - self.centers, axis=1)) ** 2.0)
