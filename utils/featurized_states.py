@@ -1,8 +1,3 @@
-__all__ = [
-    'RadialBasisFunction',
-]
-
-
 from gym import Env, ObservationWrapper
 import numpy as np
 

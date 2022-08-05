@@ -1,9 +1,3 @@
-__all__ = [
-    'Experiment',
-    'MSEExperiment',
-]
-
-
 from copy import deepcopy
 
 from gym import Env
@@ -104,3 +98,44 @@ class MeanSquaredError:
                     ) / self.n_states
 
         return error
+
+
+class StepsPerEpisode:
+    """
+    Number of steps per training episode.
+    """
+
+    def __init__(self, env: Env) -> None:
+        self.env = env
+
+    def run(
+        self,
+        agent: Agent,
+        n_episodes: int,
+        n_runs_eval: int,
+    ) -> np.ndarray:
+        base_agent = agent
+        steps = np.zeros(n_episodes)
+
+        # Training
+        agent = deepcopy(base_agent)
+        for episode in range(n_episodes):
+            episode_steps, _ = agent.episode(verbose=True)
+            steps[episode] = episode_steps
+
+        # Evaluate trained agent
+        policy = agent.policy
+        total_steps = 0
+        total_reward = 0.0
+        for _ in range(n_runs_eval):
+            state = self.env.reset()
+            while True:
+                action = policy.sample_greedy(state)
+                next_state, reward, terminated, truncated, _ = self.env.step(action)
+                total_steps += 1
+                total_reward += reward
+                if terminated or truncated:
+                    break
+                state = next_state
+
+        return steps, total_steps / n_runs_eval, total_reward / n_runs_eval

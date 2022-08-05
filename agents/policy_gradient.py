@@ -1,6 +1,6 @@
 __all__ = [
     'Reinforce',
-    'ReinforceAdvantage',
+    'ReinforceBaseline',
     'ActorCritic',
 ]
 
@@ -38,7 +38,7 @@ class Reinforce(PolicyBasedAgent, MonteCarloAgent):
         return len(rewards), sum(rewards)
 
 
-class ReinforceAdvantage(PolicyBasedAgent, MonteCarloAgent):
+class ReinforceBaseline(PolicyBasedAgent, MonteCarloAgent):
     """
     Monte Carlo policy gradient using an approximate state-value function as
     baseline.

@@ -7,9 +7,9 @@ Dynamic programming:
 - Value iteration
 
 Value-based reinforcement learning:
-- Monte Carlo methods (first- and every-visit MC)
-- Temporal difference methods (SARSA and Q-learning)
+- Monte Carlo methods (first- and every-visit)
+- Temporal difference methods (SARSA, SARSA(λ), and Q-learning)
 
 Policy-based reinforcement learning:
-- REINFORCE
-- Actor-critic
+- REINFORCE (with and without baseline)
+- Actor-critic (one-step)

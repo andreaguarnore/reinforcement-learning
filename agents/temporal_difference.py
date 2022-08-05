@@ -94,7 +94,6 @@ class SarsaLambda(Sarsa):
         # Initialize eligibility traces before each episode
         self.traces = np.zeros((
             self.Q.n_features if self.is_approximate else self.Q.n_states,
-            self.Q.n_actions,
         ))
         return super()._episode(n_steps)
 
