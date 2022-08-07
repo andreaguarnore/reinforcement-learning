@@ -8,134 +8,159 @@ from core.agent import Agent
 from core.value import TabularStateValue
 
 
-class CumulativeReward:
+class Experiment:
     """
-    Cumulative reward obtained for each episode.
+    Generic experiment class.
     """
 
-    def __init__(self, agent: Agent, env: Env) -> None:
-        self.agent = agent
+    def __init__(self, env: Env):
         self.env = env
 
-    def run(
+    def prepare_experiment(self, n_runs: int, episodes_to_log: range) -> None:
+        """
+        Called before each experiment.
+        """
+
+    def log_episode(self, agent: Agent, run: int, logged_episodes: int) -> None:
+        """
+        Train for one episode and log results.
+        """
+
+    def log_run(self, agent: Agent, run: int) -> None:
+        """
+        Called after each run has ended.
+        """
+
+    def experiment_results(self):
+        """
+        Called once the runs have terminated in order to return all results of
+        the experiment.
+        """
+
+    def run_experiment(
         self,
-        n_episodes: int,
-        average_over: int,
-        verbose: bool = True,
-    ) -> None:
+        agent: Agent,
+        n_runs: int,
+        episodes_to_log: range,
+        verbosity: int = 0,
+    ):
+        # Prepare experiment
+        self.prepare_experiment(n_runs, episodes_to_log)
+        base_agent = agent
+        last_episode = episodes_to_log[-1]
 
-        # Compute rewards over some episodes
-        rewards = np.zeros(n_episodes + average_over)
-        for episode in range(n_episodes + average_over):
-            if verbose:
-                print(f'episode: {episode}')
-            _, reward = self.agent.episode()
-            rewards[episode] += reward
-            episode += 1
+        # For each run
+        for run in range(n_runs):
 
-        # Compute moving average
-        rewards = np.convolve(rewards, np.ones(average_over), 'valid') / average_over
+            # Prepare agent
+            if verbosity > 0: print(f'run {run + 1}/{n_runs}')
+            agent = deepcopy(base_agent)
 
-        # Save to file
-        with open(f'rewards.dat', 'w') as file:
-            file.write('episode reward\n')
-            for episode, reward in enumerate(rewards):
-                file.write(f'{episode} {reward}\n')
+            # For each episode
+            episode = 0
+            logged_episodes = 0
+            while episode < last_episode:
 
-        return self.agent
+                # Log episodes if needed, otherwise simply train for one episode
+                episode += 1
+                if episode in episodes_to_log:
+                    if verbosity > 1: print(f'    episode {episode}/{last_episode + 1}')
+                    self.log_episode(agent, run, logged_episodes)
+                    logged_episodes += 1
+                else:
+                    agent.train(1)
+
+            # Log results of the run
+            self.log_run(agent, run)
+
+        return self.experiment_results()
 
 
-class MeanSquaredError:
+class CumulativeReward(Experiment):
     """
-    Mean squared error with different agents.
+    Cumulative reward obtained for each episode over some runs.
     """
 
-    def __init__(
-        self,
-        env: Env,
-        gamma: float = 0.9,
-    ) -> None:
-        self.env = env
-        self.n_states = env.observation_space.n
-        self.n_actions = env.action_space.n
+    def prepare_experiment(self, n_runs: int, episodes_to_log: range) -> None:
+        self.rewards = np.zeros((len(episodes_to_log), n_runs))
 
-        # Compute optimal value
+    def log_episode(self, agent: Agent, run: int, logged_episodes: int) -> None:
+        _, reward = agent.episode()
+        self.rewards[logged_episodes, run] = reward
+
+    def experiment_results(self):
+        return self.rewards
+
+
+class MeanSquaredError(Experiment):
+    """
+    Mean squared error (to the true value function) for each wanted episode over
+    some runs.
+    """
+
+    def __init__(self, env: Env, gamma: float, **args) -> None:
+        super().__init__(env, **args)
+        self.n_states = self.env.observation_space.n
+        self.n_actions = self.env.action_space.n
+
+        # Compute optimal value via value iteration
         vi = ValueIteration(
-            env=env,
-            starting_value=TabularStateValue(self.n_states),
+            env=self.env,
+            initial_value=TabularStateValue(self.n_states),
             gamma=gamma,
             theta=1e-3,
         )
         vi.solve()
         self.optimal_value = vi.value.to_array()
 
-    def run(
-        self,
-        agent: Agent,
-        n_runs: int,
-        episodes_to_log: list,
-        verbose: bool = True,
-    ) -> np.ndarray:
-        base_agent = agent
-        error = np.zeros((len(episodes_to_log), n_runs))
+    def prepare_experiment(self, n_runs: int, episodes_to_log: range) -> None:
+        self.error = np.zeros((len(episodes_to_log), n_runs))
 
-        # Average error over some runs
-        for run in range(n_runs):
+    def log_episode(self, agent: Agent, run: int, logged_episodes: int) -> None:
+        agent.train(1)
 
-            if verbose:
-                print(f'    run {run + 1}/{n_runs}')
+        # Compute mean squared error
+        value = agent.value.to_array()
+        self.error[logged_episodes, run] = np.sum(
+            np.power(self.optimal_value - value, 2)
+        ) / self.n_states
 
-            # Error after some episodes of training
-            episode = 0
-            agent = deepcopy(base_agent)
-            while episode <= episodes_to_log[-1]:
-                agent.train(1)
-                episode += 1
-                if episode in episodes_to_log:
-                    value = agent.value.to_array()
-                    error[episodes_to_log.index(episode), run] += np.sum(
-                        np.power(self.optimal_value - value, 2)
-                    ) / self.n_states
-
-        return error
+    def experiment_results(self):
+        return self.error
 
 
-class StepsPerEpisode:
+class StepsPerEpisode(Experiment):
     """
-    Number of steps per training episode.
+    Evaluate a trained agent by counting the number of steps and the reward
+    obtained over some runs while using the implicitly derived greedy policy as
+    policy.
     """
 
-    def __init__(self, env: Env) -> None:
-        self.env = env
+    def __init__(self, env: Env, n_eval_runs: int, **args):
+        super().__init__(env, **args)
+        self.n_eval_runs = n_eval_runs
 
-    def run(
-        self,
-        agent: Agent,
-        n_episodes: int,
-        n_runs_eval: int,
-    ) -> np.ndarray:
-        base_agent = agent
-        steps = np.zeros(n_episodes)
+    def prepare_experiment(self, n_runs: int, episodes_to_log: range) -> None:
+        self.eval_steps = np.zeros(n_runs)
+        self.eval_reward = np.zeros(n_runs)
 
-        # Training
-        agent = deepcopy(base_agent)
-        for episode in range(n_episodes):
-            episode_steps, _ = agent.episode(verbose=True)
-            steps[episode] = episode_steps
+    def log_episode(self, agent: Agent, run: int, logged_episodes: int) -> None:
+        agent.train(1)
 
-        # Evaluate trained agent
+    def log_run(self, agent: Agent, run: int) -> None:
         policy = agent.policy
-        total_steps = 0
-        total_reward = 0.0
-        for _ in range(n_runs_eval):
+        for _ in range(self.n_eval_runs):
             state = self.env.reset()
             while True:
                 action = policy.sample_greedy(state)
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
-                total_steps += 1
-                total_reward += reward
+                self.eval_steps[run] += 1.0
+                self.eval_reward[run] += reward
                 if terminated or truncated:
                     break
                 state = next_state
+        self.eval_steps[run] /= self.n_eval_runs
+        self.eval_reward[run] /= self.n_eval_runs
 
-        return steps, total_steps / n_runs_eval, total_reward / n_runs_eval
+    def experiment_results(self):
+        return self.eval_steps, self.eval_reward

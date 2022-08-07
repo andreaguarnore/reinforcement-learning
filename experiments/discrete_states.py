@@ -8,6 +8,14 @@ from utils.discretized_states import DiscretizedStates
 from utils.experiment import StepsPerEpisode
 
 
+n_episodes = 500
+gamma = 0.9
+n_runs = 10
+n_eval_runs = 100
+filename = 'eval_discrete.dat'
+with open(filename, 'w') as file:
+    file.write('bins avg_steps least_steps most_steps\n')
+
 gym.envs.register(
     id='ModifiedEnv',
     entry_point='gym.envs.classic_control:MountainCarEnv',
@@ -17,14 +25,7 @@ base_env = gym.make('ModifiedEnv', new_step_api=True)
 n_actions = base_env.action_space.n
 dims = base_env.observation_space.shape[0]
 
-n_episodes = 500
-gamma = 0.9
-n_runs_eval = 10
-average_over = 30
-evaluation = open('eval.dat', 'w')
-evaluation.write('bins steps reward\n')
-
-all_n_bins = [5, 10, 20]
+all_n_bins = [5, 10, 20, 40]
 for n_bins in all_n_bins:
 
     print(n_bins)
@@ -46,27 +47,14 @@ for n_bins in all_n_bins:
     )
 
     # Run experiment
-    experiment = StepsPerEpisode(env)
-    training_steps, eval_steps, eval_reward = experiment.run(
-        agent,
-        n_episodes + average_over,
-        n_runs_eval,
+    experiment = StepsPerEpisode(env, n_eval_runs)
+    eval_steps, _ = experiment.run_experiment(
+        agent=agent,
+        episodes_to_log=range(1, n_episodes),
+        n_runs=n_runs,
+        verbosity=1,
     )
 
-    # Compute moving average
-    training_steps = np.convolve(
-        training_steps,
-        np.ones(average_over),
-        'valid',
-    ) / average_over
-
-    # Save steps to file
-    with open(f'{n_bins}.dat', 'w') as file:
-        file.write('episode steps\n')
-        for episode, steps in enumerate(training_steps):
-            file.write(f'{episode} {steps}\n')
-
     # Save evaluation
-    evaluation.write(f'{n_bins} {eval_steps} {eval_reward}\n')
-
-evaluation.close()
+    with open(filename, 'a') as file:
+        file.write(f'{n_bins} {np.mean(eval_steps)} {np.min(eval_steps)} {np.max(eval_steps)}\n')

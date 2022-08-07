@@ -7,15 +7,15 @@ from core.value import LinearApproxActionValue
 from utils.experiment import StepsPerEpisode
 from utils.featurized_states import RadialBasisFunction
 
-
 n_episodes = 500
-average_over = 30
 gamma = 0.9
 rbf_gamma = 10
 n_features = 500
-n_runs_eval = 10
-evaluation = open('eval.dat', 'w')
-evaluation.write('gamma features steps reward\n')
+n_runs = 10
+n_eval_runs = 100
+filename = 'eval_lambda.dat'
+with open(filename, 'w') as file:
+    file.write('lambda avg_steps least_steps most_steps\n')
 
 gym.envs.register(
     id='ModifiedEnv',
@@ -49,27 +49,14 @@ for lambda_ in lambdas:
     )
 
     # Run experiment
-    experiment = StepsPerEpisode(env)
-    training_steps, eval_steps, eval_reward = experiment.run(
-        agent,
-        n_episodes + average_over,
-        n_runs_eval,
+    experiment = StepsPerEpisode(env, n_eval_runs)
+    eval_steps, eval_reward = experiment.run_experiment(
+        agent=agent,
+        episodes_to_log=range(1, n_episodes),
+        n_runs=n_runs,
+        verbosity=1,
     )
 
-    # Compute moving average
-    training_steps = np.convolve(
-        training_steps,
-        np.ones(average_over),
-        'valid'
-    ) / average_over
-
-    # Save steps to file
-    with open(f'{lambda_}.dat', 'w') as file:
-        file.write('episode steps\n')
-        for episode, steps in enumerate(training_steps):
-            file.write(f'{episode} {steps}\n')
-
     # Save evaluation
-    evaluation.write(f'{int(lambda_) if lambda_ == 0 else lambda_} {eval_steps} {eval_reward}\n')
-
-evaluation.close()
+    with open(filename, 'a') as file:
+        file.write(f'{lambda_} {np.mean(eval_steps)} {np.min(eval_steps)} {np.max(eval_steps)}\n')

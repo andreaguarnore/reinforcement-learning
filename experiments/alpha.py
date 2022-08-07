@@ -18,9 +18,6 @@ alphas = {
     '0_01': StepSize('constant', 1e-2),
     '0_15': StepSize('constant', 0.15),
     '0_30': StepSize('constant', 0.30),
-    '0_45': StepSize('constant', 0.45),
-    '0_60': StepSize('constant', 0.60),
-    '0_99': StepSize('constant', 0.99),
 }
 for name, alpha in alphas.items():
 
@@ -28,16 +25,17 @@ for name, alpha in alphas.items():
 
     # Run experiment
     episodes_to_log = range(1, 10_000, 50)
-    error = experiment.run(
+    error = experiment.run_experiment(
         agent = Sarsa(
             env=env,
-            starting_value=TabularActionValue(n_states, n_actions),
+            initial_value=TabularActionValue(n_states, n_actions),
             gamma=gamma,
             alpha=alpha,
             epsilon=StepSize('linear', 0.8, 1e-3),
         ),
-        n_runs=10,
-        episodes_to_log=list(episodes_to_log),
+        n_runs=100,
+        episodes_to_log=episodes_to_log,
+        verbosity=1,
     )
 
     # Save to file

@@ -7,6 +7,9 @@ from core.value import TabularActionValue
 from utils.experiment import MeanSquaredError
 
 
+agent_clss = QLearning
+n_runs = 100
+
 env = gym.make('FrozenLake-v1', is_slippery=True, new_step_api=True)
 n_states = env.observation_space.n
 n_actions = env.action_space.n
@@ -26,21 +29,22 @@ for name, epsilon in epsilons.items():
 
     # Run experiment
     episodes_to_log = range(1, 10_000, 50)
-    error = experiment.run(
-        agent = QLearning(
+    errors = experiment.run_experiment(
+        agent=agent_clss(
             env=env,
-            starting_value=TabularActionValue(n_states, n_actions),
+            initial_value=TabularActionValue(n_states, n_actions),
             gamma=gamma,
             epsilon=epsilon,
         ),
-        n_runs=10,
-        episodes_to_log=list(episodes_to_log),
+        n_runs=n_runs,
+        episodes_to_log=episodes_to_log,
+        verbosity=1,
     )
 
     # Save to file
-    with open(f'{name}.dat', 'w') as file:
+    with open(f'{agent_clss.__name__.lower()}_{name}.dat', 'w') as file:
         file.write('episode mse top bottom\n')
-        for episode, mse in zip(episodes_to_log, error):
+        for episode, mse in zip(episodes_to_log, errors):
             mean = np.mean(mse)
             std = np.std(mse)
             file.write(f'{episode} {mean} {mean + std} {mean - std}\n')

@@ -7,8 +7,9 @@ from core.value import TabularActionValue
 from utils.experiment import CumulativeReward, MeanSquaredError
 
 
-agent_clss = Sarsa
-verbose = True
+agent_clss = QLearning
+n_runs = 100
+average_over = 10
 
 env = gym.make('CliffWalking-v0', new_step_api=True)
 n_states = env.observation_space.n
@@ -25,48 +26,51 @@ for i in range(n_actions):
 # Create the agent and run the experiment on it
 agent = agent_clss(
     env=env,
-    starting_value=TabularActionValue(n_states, n_actions),
+    initial_value=TabularActionValue(n_states, n_actions),
     gamma=gamma,
     epsilon=StepSize('constant', 0.1),
 )
-experiment = CumulativeReward(agent, env)
-agent = experiment.run(
-    n_episodes=800,
-    average_over=30,
-    verbose=verbose,
+experiment = CumulativeReward(env)
+rewards = experiment.run_experiment(
+    agent=agent,
+    n_runs=n_runs + average_over,
+    episodes_to_log=range(1, 800),
+    verbosity=1,
 )
 
-# Print the learned policy
-policy = agent.policy
-for row in range(rows):
-    for col in range(cols):
-        state = np.ravel_multi_index((row, col), (rows, cols))
-        match policy.sample_greedy(state):
-            case 0: print('↑', end=' ')
-            case 1: print('→', end=' ')
-            case 2: print('↓', end=' ')
-            case 3: print('←', end=' ')
-    print()
+# Compute average over runs
+rewards = np.mean(rewards, axis=1)
+
+# Smooth via moving average
+rewards = np.convolve(rewards, np.ones(average_over), 'valid') / average_over
+
+# Save cumulative reward to file
+with open(f'{agent_clss.__name__.lower()}_reward.dat', 'w') as file:
+    file.write('episode reward\n')
+    for episode, reward in enumerate(rewards):
+        file.write(f'{episode} {np.mean(reward)}\n')
 
 # Also compute MSE over some runs
 print('computing mse')
 experiment = MeanSquaredError(env, gamma)
 episodes_to_log = range(1, 800, 3)
-error = experiment.run(
-    agent = agent_clss(
+errors = experiment.run_experiment(
+    agent=agent_clss(
         env=env,
-        starting_value=TabularActionValue(n_states, n_actions),
+        initial_value=TabularActionValue(n_states, n_actions),
         gamma=gamma,
-        # epsilon=LearningRate('constant', 0.1),
-        epsilon=StepSize('linear', 1e-2),
+        epsilon=StepSize('constant', 0.1),
     ),
-    n_runs=10,
-    episodes_to_log=list(episodes_to_log),
-    verbose=verbose,
+    n_runs=n_runs,
+    episodes_to_log=episodes_to_log,
+    verbosity=1,
 )
 
-# Save to file
-with open(f'mse.dat', 'w') as file:
+# Compute average over runs
+errors = np.mean(errors, axis=1)
+
+# Save MSE to file
+with open(f'{agent_clss.__name__.lower()}_mse.dat', 'w') as file:
     file.write('episode mse\n')
-    for episode, mse in zip(episodes_to_log, error):
-        file.write(f'{episode} {np.mean(mse)}\n')
+    for episode, mse in zip(episodes_to_log, errors):
+        file.write(f'{episode} {mse}\n')
