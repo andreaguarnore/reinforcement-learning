@@ -5,7 +5,7 @@ from core import *
 from utils.featurized_states import *
 
 
-n_episodes = 500
+n_episodes = 10_000
 n_features = 1_000
 
 # Create environment
@@ -14,8 +14,9 @@ n_features = 1_000
 #     entry_point='gym.envs.classic_control:MountainCarEnv',
 #     max_episode_steps=10_000,
 # )
-base_env = gym.make('MountainCarContinuous-v0', max_episode_steps=10_000, new_step_api=True)
+base_env = gym.make('MountainCarContinuous-v0', new_step_api=True)
 os = base_env.observation_space
+aspace = base_env.action_space
 env = RadialBasisFunction(
     env=base_env,
     limits=list(zip(os.low, os.high)),
@@ -52,6 +53,6 @@ print('Actor-critic:')
 policy = ActorCritic(
     env=env,
     # initial_policy=SoftmaxPolicy(n_features, n_actions),
-    initial_policy=GaussianPolicy(n_features),
+    initial_policy=GaussianPolicy(n_features, std_dev=1.0),
     initial_value=LinearApproxStateValue(n_features),
 ).train(n_episodes, verbose=True)

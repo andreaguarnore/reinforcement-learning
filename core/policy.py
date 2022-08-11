@@ -155,18 +155,29 @@ class SoftmaxPolicy(ParameterizedPolicy):
 
 class GaussianPolicy(ParameterizedPolicy):
     """
-    Gaussian in action preferences.
+    Gaussian in action preferences. The standard deviation will be constant if
+    passed in as argument.
     """
 
-    def __init__(self, n_features: int, **kwargs) -> None:
+    def __init__(
+        self,
+        n_features: int,
+        std_dev: float | None = None,
+        **kwargs
+    ) -> None:
         super().__init__(n_features, **kwargs)
         self.theta_mu = np.zeros(n_features)
-        self.theta_sigma = np.zeros(n_features)
+        self.const_std_dev = std_dev is not None
+        if self.const_std_dev:
+            self.std_dev = std_dev
+        else:
+            self.theta_sigma = np.zeros(n_features)
 
     def mean(self, features: np.ndarray):
         return self.theta_mu.T @ features
 
     def std(self, features: np.ndarray):
+        if self.const_std_dev: return self.std_dev
         return np.exp(self.theta_sigma.T @ features)
 
     def sample(self, features: np.ndarray) -> float:
@@ -182,7 +193,8 @@ class GaussianPolicy(ParameterizedPolicy):
         μ gradient: (a - μ(s)) / σ(s)²) φ(s)
         σ gradient: ((a - μ(s))² / σ(s)² - 1) φ(s)
         """
-        mu_gradient = (action - self.mean(features) * features) / self.std(features)
+        mu_gradient = (action - self.mean(features)) * features / self.std(features) ** 2
         self.theta_mu += self.lr() * update * mu_gradient
-        sigma_gradient = ((action - self.mean(features)) ** 2 / self.std(features) ** 2 - 1) * features
-        self.theta_sigma += self.lr() * update * sigma_gradient
+        if not self.const_std_dev:
+            sigma_gradient = ((action - self.mean(features)) ** 2 / (self.std(features)) ** 2 - 1) * features
+            self.theta_sigma += self.lr() * update * sigma_gradient
