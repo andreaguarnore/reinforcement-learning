@@ -179,7 +179,7 @@ class GaussianPolicy(ParameterizedPolicy):
         update: float,
     ) -> None:
         """
-        μ gradient: (a - μ(s)) / σ(s)² φ(s)
+        μ gradient: (a - μ(s)) / σ(s)²) φ(s)
         σ gradient: ((a - μ(s))² / σ(s)² - 1) φ(s)
         """
         mu_gradient = (action - self.mean(features) * features) / self.std(features)

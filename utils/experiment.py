@@ -1,10 +1,12 @@
 from copy import deepcopy
+import pickle
 
 from gym import Env
 import numpy as np
 
 from agents.dynamic_programming import ValueIteration
 from core.agent import Agent
+from core.policy import ParameterizedPolicy
 from core.value import TabularStateValue
 
 
@@ -15,6 +17,7 @@ class Experiment:
 
     def __init__(self, env: Env):
         self.env = env
+        self.has_run = False
 
     def prepare_experiment(self, n_runs: int, episodes_to_log: range) -> None:
         """
@@ -33,9 +36,24 @@ class Experiment:
 
     def experiment_results(self):
         """
-        Called once the runs have terminated in order to return all results of
-        the experiment.
+        Return the results of the experiment.
         """
+        assert self.has_run, 'No results to return, run the experiment first'
+
+    def dump_results(self, filename: str) -> None:
+        """
+        Save results in a file.
+        """
+        with open(filename, 'wb') as file:
+            pickle.dump(self.experiment_results(), file)
+
+    @staticmethod
+    def load_results(filename: str) -> None:
+        """
+        Load results from a file.
+        """
+        with open(filename, 'rb') as file:
+            return pickle.load(file)
 
     def run_experiment(
         self,
@@ -73,6 +91,7 @@ class Experiment:
             # Log results of the run
             self.log_run(agent, run)
 
+        self.has_run = True
         return self.experiment_results()
 
 
@@ -89,6 +108,7 @@ class CumulativeReward(Experiment):
         self.rewards[logged_episodes, run] = reward
 
     def experiment_results(self):
+        super().experiment_results()
         return self.rewards
 
 
@@ -126,6 +146,7 @@ class MeanSquaredError(Experiment):
         ) / self.n_states
 
     def experiment_results(self):
+        super().experiment_results()
         return self.error
 
 
@@ -141,18 +162,22 @@ class StepsPerEpisode(Experiment):
         self.n_eval_runs = n_eval_runs
 
     def prepare_experiment(self, n_runs: int, episodes_to_log: range) -> None:
+        self.training_steps = np.zeros((len(episodes_to_log), n_runs))
         self.eval_steps = np.zeros(n_runs)
         self.eval_reward = np.zeros(n_runs)
 
     def log_episode(self, agent: Agent, run: int, logged_episodes: int) -> None:
-        agent.train(1)
+        steps, _ = agent.episode()
+        self.training_steps[logged_episodes, run] = steps
 
     def log_run(self, agent: Agent, run: int) -> None:
         policy = agent.policy
+        is_param = isinstance(policy, ParameterizedPolicy)
         for _ in range(self.n_eval_runs):
             state = self.env.reset()
             while True:
-                action = policy.sample_greedy(state)
+                if is_param: action = policy.sample(state)
+                else: action = policy.sample_greedy(state)
                 next_state, reward, terminated, truncated, _ = self.env.step(action)
                 self.eval_steps[run] += 1.0
                 self.eval_reward[run] += reward
@@ -163,4 +188,5 @@ class StepsPerEpisode(Experiment):
         self.eval_reward[run] /= self.n_eval_runs
 
     def experiment_results(self):
-        return self.eval_steps, self.eval_reward
+        super().experiment_results()
+        return self.training_steps, self.eval_steps, self.eval_reward

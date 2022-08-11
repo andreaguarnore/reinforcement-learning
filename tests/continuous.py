@@ -5,31 +5,32 @@ from core import *
 from utils.featurized_states import *
 
 
-n_episodes = 9_000
+n_episodes = 500
 n_features = 1_000
 
 # Create environment
-gym.envs.register(
-    id='ModifiedEnv',
-    entry_point='gym.envs.classic_control:MountainCarEnv',
-    max_episode_steps=10_000,
-)
-base_env = gym.make('ModifiedEnv', new_step_api=True)
+# gym.envs.register(
+#     id='ModifiedEnv',
+#     entry_point='gym.envs.classic_control:MountainCarEnv',
+#     max_episode_steps=10_000,
+# )
+base_env = gym.make('MountainCarContinuous-v0', max_episode_steps=10_000, new_step_api=True)
+os = base_env.observation_space
 env = RadialBasisFunction(
     env=base_env,
-    limits=list(zip(base_env.low, base_env.high)),
+    limits=list(zip(os.low, os.high)),
     gamma=10.0,
     n_centers=n_features,
     new_step_api=True,
 )
-n_actions = env.action_space.n
+# n_actions = env.action_space.n
 
 # Sarsa
-print('Sarsa:')
-policy = Sarsa(
-    env=env,
-    initial_value=LinearApproxActionValue(n_features, n_actions),
-).train(n_episodes, verbose=True)
+# print('Sarsa:')
+# policy = Sarsa(
+#     env=env,
+#     initial_value=LinearApproxActionValue(n_features, n_actions),
+# ).train(n_episodes, verbose=True)
 
 # # Reinforce
 # print('Reinforce:')
@@ -47,9 +48,10 @@ policy = Sarsa(
 # ).train(n_episodes, verbose=True)
 
 # # Actor-critic
-# print('Actor-critic:')
-# policy = ActorCritic(
-#     env=env,
-#     initial_policy=SoftmaxPolicy(n_features, n_actions),
-#     initial_value=LinearApproxStateValue(n_features),
-# ).train(n_episodes, verbose=True)
+print('Actor-critic:')
+policy = ActorCritic(
+    env=env,
+    # initial_policy=SoftmaxPolicy(n_features, n_actions),
+    initial_policy=GaussianPolicy(n_features),
+    initial_value=LinearApproxStateValue(n_features),
+).train(n_episodes, verbose=True)

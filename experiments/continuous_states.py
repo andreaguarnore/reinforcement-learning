@@ -5,8 +5,9 @@ import gym
 import numpy as np
 
 from agents import *
+from core.policy import SoftmaxPolicy
 from core.step_size import StepSize
-from core.value import LinearApproxActionValue
+from core.value import LinearApproxActionValue, LinearApproxStateValue
 from utils.experiment import Experiment, StepsPerEpisode
 from utils.featurized_states import RadialBasisFunction
 
@@ -23,9 +24,9 @@ average_over = 10
 rbf_gamma = 10
 n_features = 500
 
-eval_filename = 'eval_lambda.dat'
+eval_filename = 'eval_continuous.dat'
 with open(eval_filename, 'w') as file:
-    file.write('lambda avg_steps least_steps most_steps\n')
+    file.write('method avg_steps least_steps most_steps\n')
 
 base_env = gym.make('MountainCar-v0', max_episode_steps=10_000, new_step_api=True)
 os = base_env.observation_space
@@ -38,33 +39,50 @@ env = RadialBasisFunction(
 )
 n_actions = base_env.action_space.n
 
-lambdas = [
-    0.0, 0.1, 0.2,
-    0.3, 0.4, 0.5,
-    0.6, 0.7, 0.8,
-    0.9, 0.95, 0.99
+methods = [
+    # Sarsa,
+    # QLearning,
+    ActorCritic,
 ]
-for lambda_ in lambdas:
+for method in methods:
 
-    print(lambda_)
-    filename = str(lambda_) + '_lambda'
+    method_name = method.__name__.lower()
+    print(method_name)
+    filename = method_name + '_gaussian_continuous'
     full_path = join('experiments', 'saved', filename + '.dat')
 
     if to_train:
 
         # Create agent
-        agent = SarsaLambda(
-            env=env,
-            initial_value=LinearApproxActionValue(n_features, n_actions),
-            gamma=gamma,
-            alpha=StepSize('linear', 0.1, 1e-2),
-            epsilon=StepSize('linear', 0.8, 1e-2),
-            lambda_=lambda_,
-        )
+        match method:
+            case vb if vb in [Sarsa, QLearning]:
+                agent = method(
+                    env=env,
+                    initial_value=LinearApproxActionValue(n_features, n_actions),
+                    gamma=gamma,
+                    alpha=StepSize('linear', 0.1, 1e-2),
+                    epsilon=StepSize('linear', 0.8, 1e-2),
+                )
+            case pb if pb in [Reinforce]:
+                agent = method(
+                    env=env,
+                    initial_policy=SoftmaxPolicy(n_features, n_actions),
+                    gamma=gamma,
+                    alpha=StepSize('linear', 0.1, 1e-2),
+                )
+            case pbwv if pbwv in [ReinforceBaseline, ActorCritic]:
+                agent = method(
+                    env=env,
+                    initial_policy=SoftmaxPolicy(n_features, n_actions),
+                    initial_value=LinearApproxStateValue(n_features),
+                    gamma=gamma,
+                    alpha=StepSize('linear', 0.1, 1e-2),
+                    value_alpha=StepSize('linear', 0.1, 1e-2),
+                )
 
         # Run experiment
         experiment = StepsPerEpisode(env, n_eval_runs)
-        training_steps, eval_steps, eval_reward = experiment.run_experiment(
+        training_steps, eval_steps, _ = experiment.run_experiment(
             agent=agent,
             episodes_to_log=range(1, n_episodes),
             n_runs=n_runs,
@@ -91,4 +109,4 @@ for lambda_ in lambdas:
 
     # Save evaluation
     with open(eval_filename, 'a') as file:
-        file.write(f'{lambda_} {np.mean(eval_steps)} {np.min(eval_steps)} {np.max(eval_steps)}\n')
+        file.write(f'{method_name} {np.mean(eval_steps)} {np.min(eval_steps)} {np.max(eval_steps)}\n')
